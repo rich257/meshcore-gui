@@ -1,6 +1,6 @@
 # MeshCore GUI
 
-A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE).
+A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE) for on your desktop.
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
