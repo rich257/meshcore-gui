@@ -13,15 +13,15 @@
 
 ## 1. What is this document about?
 
-The original document describes how to "listen in" on the BLE communication of a **MeshCore T1000-e** radio from a Linux computer. It explains:
+This document explains the BLE concepts and terminology behind communicating with a **MeshCore T1000-e** radio from a Linux computer. It covers:
 
-- What steps are needed to set up a connection
-- Why it often goes wrong (and how to prevent that)
-- How to save raw protocol data for analysis
+- How BLE connections work and how they differ from Classic Bluetooth
+- The GATT service model and the Nordic UART Service (NUS) used by MeshCore
+- Why BLE session ownership matters and how it can cause connection failures
 
 **The key message in one sentence:**
 
-> Only **one listener at a time** can be connected to the T1000-e. If something else is already connected, your capture will fail.
+> Only **one BLE client at a time** can be connected to the T1000-e. If something else is already connected, your connection will fail.
 
 ---
 
@@ -609,119 +609,19 @@ The document places the problem in a **layer model**. This helps understand *whe
 
 ---
 
-## 8. The workflow summarised
+## 8. Conclusion
 
-### 8.1 One-time preparation
-
-```bash
-# Start bluetoothctl
-bluetoothctl
-
-# Activate Bluetooth
-power on
-agent on
-default-agent
-scan on
-
-# Wait until device is visible, then pair
-pair AA:BB:CC:DD:EE:FF
-# Enter PIN code (e.g. 123456)
-
-# Trust the device
-trust AA:BB:CC:DD:EE:FF
-quit
-```
-
-### 8.2 Before each capture
-
-1. **Phone Bluetooth OFF**
-2. **Close GNOME Bluetooth GUI**
-3. **Explicitly disconnect:**
-
-```bash
-bluetoothctl disconnect AA:BB:CC:DD:EE:FF
-```
-
-4. **Verify that nothing is connected:**
-
-```bash
-bluetoothctl info AA:BB:CC:DD:EE:FF | egrep -i "Connected"
-# Expected: Connected: no
-```
-
-### 8.3 Starting a capture
-
-```bash
-python tools/ble_observe.py \
-  --address AA:BB:CC:DD:EE:FF \
-  --pre-scan-seconds 10 \
-  --connect-timeout 30 \
-  --notify \
-  --notify-seconds 30 \
-  --notify-start-timeout 30 \
-  --disconnect-timeout 15 \
-  --capture captures/session_$(date -u +%Y-%m-%d_%H%M%S).raw
-```
-
----
-
-## 9. Common mistakes
-
-| Mistake | Consequence | Solution |
-|---------|------------|----------|
-| GNOME Bluetooth Manager open | `Notify acquired` | Close the GUI |
-| Ran `bluetoothctl connect` | Tool fails at notify | Always `disconnect` first |
-| Phone Bluetooth on | Phone claims the connection | Turn off phone BT |
-| Multiple scripts at once | First one wins, rest fail | One tool at a time |
-
----
-
-## 10. Visual overview (sequence diagram)
-
-```
-┌──────┐     ┌───────┐     ┌───────┐     ┌───────┐
-│ User │     │ Linux │     │ BlueZ │     │ Radio │
-└──┬───┘     └───┬───┘     └───┬───┘     └───┬───┘
-   │             │             │             │
-   │ pair/trust  │             │             │
-   │────────────>│────────────────────────-->│  (one-time)
-   │             │             │             │
-   │             │    No active connection   │
-   │             │             │             │
-   │ start tool  │             │             │
-   │────────────>│             │             │
-   │             │  connect()  │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │start_notify │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │    notify (data frames)   │
-   │             │<────────────│<────────────│
-   │             │             │             │
-   │             │ stop_notify │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │ disconnect  │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-```
-
----
-
-## 11. Conclusion
-
-The document demonstrates that:
+The key takeaways from this document:
 
 - ✅ MeshCore BLE companion **works correctly** on Linux
 - ✅ The firmware **does not block notify**
 - ✅ The only requirement is: **exactly one active BLE client per radio**
 
-When you follow this workflow, captures are reproducible and further protocol analysis becomes possible.
+Understanding the ownership model and BLE fundamentals described here is essential for working with any BLE-connected MeshCore device.
 
 ---
 
-## 12. References
+## 9. References
 
 - MeshCore Companion Radio Protocol: [GitHub Wiki](https://github.com/meshcore-dev/MeshCore/wiki/Companion-Radio-Protocol)
 - Bluetooth SIG Assigned Numbers (official services): [bluetooth.com/specifications/assigned-numbers](https://www.bluetooth.com/specifications/assigned-numbers/)

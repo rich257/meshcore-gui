@@ -13,15 +13,15 @@
 
 ## 1. Waar gaat dit document over?
 
-Het originele document beschrijft hoe je op een Linux-computer kunt "meeluisteren" naar de BLE-communicatie van een **MeshCore T1000-e** radio. Het legt uit:
+Dit document legt de BLE-concepten en terminologie uit achter de communicatie met een **MeshCore T1000-e** radio vanaf een Linux-computer. Het behandelt:
 
-- Welke stappen nodig zijn om een verbinding op te zetten
-- Waarom het vaak misgaat (en hoe je dat voorkomt)
-- Hoe je ruwe protocol-data kunt opslaan voor analyse
+- Hoe BLE-verbindingen werken en hoe ze verschillen van Classic Bluetooth
+- Het GATT-servicemodel en de Nordic UART Service (NUS) die MeshCore gebruikt
+- Waarom BLE-sessie-ownership belangrijk is en hoe het verbindingsproblemen kan veroorzaken
 
 **De kernboodschap in één zin:**
 
-> Er mag maar **één luisteraar tegelijk** verbonden zijn met de T1000-e. Als iets anders al verbonden is, faalt jouw capture.
+> Er mag maar **één BLE-client tegelijk** verbonden zijn met de T1000-e. Als iets anders al verbonden is, faalt jouw verbinding.
 
 ---
 
@@ -609,119 +609,19 @@ Het document plaatst het probleem in een **lagenmodel**. Dit helpt begrijpen *wa
 
 ---
 
-## 8. De workflow samengevat
+## 8. Conclusie
 
-### 8.1 Eenmalige voorbereiding
-
-```bash
-# Start bluetoothctl
-bluetoothctl
-
-# Activeer Bluetooth
-power on
-agent on
-default-agent
-scan on
-
-# Wacht tot device zichtbaar is, dan pairen
-pair literal:AA:BB:CC:DD:EE:FF
-# Voer pincode in (bijv. 123456)
-
-# Vertrouw het apparaat
-trust literal:AA:BB:CC:DD:EE:FF
-quit
-```
-
-### 8.2 Vóór elke capture
-
-1. **Telefoon Bluetooth UIT**
-2. **GNOME Bluetooth GUI SLUITEN**
-3. **Expliciet disconnecten:**
-
-```bash
-bluetoothctl disconnect literal:AA:BB:CC:DD:EE:FF
-```
-
-4. **Controleer dat niemand verbonden is:**
-
-```bash
-bluetoothctl info literal:AA:BB:CC:DD:EE:FF | egrep -i "Connected"
-# Verwacht: Connected: no
-```
-
-### 8.3 Capture starten
-
-```bash
-python tools/ble_observe.py \
-  --address literal:AA:BB:CC:DD:EE:FF \
-  --pre-scan-seconds 10 \
-  --connect-timeout 30 \
-  --notify \
-  --notify-seconds 30 \
-  --notify-start-timeout 30 \
-  --disconnect-timeout 15 \
-  --capture captures/session_$(date -u +%Y-%m-%d_%H%M%S).raw
-```
-
----
-
-## 9. Veelgemaakte fouten
-
-| Fout | Gevolg | Oplossing |
-|------|--------|-----------|
-| GNOME Bluetooth Manager open | `Notify acquired` | GUI sluiten |
-| `bluetoothctl connect` gedaan | Tool faalt bij notify | Altijd `disconnect` eerst |
-| Telefoon Bluetooth aan | Telefoon claimt verbinding | Telefoon BT uit |
-| Meerdere scripts tegelijk | Eerste wint, rest faalt | Één tool tegelijk |
-
----
-
-## 10. Visueel overzicht (sequentiediagram)
-
-```
-┌──────┐     ┌───────┐     ┌───────┐     ┌───────┐
-│ User │     │ Linux │     │ BlueZ │     │ Radio │
-└──┬───┘     └───┬───┘     └───┬───┘     └───┬───┘
-   │             │             │             │
-   │ pair/trust  │             │             │
-   │────────────>│────────────────────────-->│  (eenmalig)
-   │             │             │             │
-   │             │    Geen actieve verbinding│
-   │             │             │             │
-   │ start tool  │             │             │
-   │────────────>│             │             │
-   │             │  connect()  │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │start_notify │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │    notify (data frames)   │
-   │             │<────────────│<────────────│
-   │             │             │             │
-   │             │ stop_notify │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-   │             │ disconnect  │             │
-   │             │────────────>│────────────>│
-   │             │             │             │
-```
-
----
-
-## 11. Conclusie
-
-Het document bewijst dat:
+De belangrijkste inzichten uit dit document:
 
 - ✅ MeshCore BLE companion **werkt correct** op Linux
 - ✅ De firmware **blokkeert notify niet**
-- ✅ Het enige vereiste is: **exact één actieve BLE client per radio**
+- ✅ Het enige vereiste is: **exact één actieve BLE-client per radio**
 
-Wanneer je deze workflow volgt, zijn captures reproduceerbaar en is verdere protocol-analyse mogelijk.
+Het begrijpen van het ownership-model en de BLE-fundamenten uit dit document is essentieel voor het werken met elk BLE-verbonden MeshCore-apparaat.
 
 ---
 
-## 12. Referenties
+## 9. Referenties
 
 - MeshCore Companion Radio Protocol: [GitHub Wiki](https://github.com/meshcore-dev/MeshCore/wiki/Companion-Radio-Protocol)
 - Bluetooth SIG Assigned Numbers (officiële services): [bluetooth.com/specifications/assigned-numbers](https://www.bluetooth.com/specifications/assigned-numbers/)
