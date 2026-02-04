@@ -1,10 +1,12 @@
 # MeshCore GUI
-
-A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE) for on your desktop.
-
+![Status](https://img.shields.io/badge/Status-Testing%20%2F%20Not%20Production%20Ready-orange.svg)
+> ⚠️  **This branch is in active development and testing. It is not production-ready. Use at your own risk. **
+                                                  
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-orange.svg)
+
+A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE) for on your desktop.
 
 ## Why This Project Exists
 
@@ -139,7 +141,7 @@ On macOS the address will be a UUID (e.g., `12345678-ABCD-...`) rather than a MA
 
 ### 3. Configure channels
 
-Open `meshcore_gui.py` and adjust `CHANNELS_CONFIG` to your own channels:
+Open `meshcore_gui/config.py` and adjust `CHANNELS_CONFIG` to your own channels:
 
 ```python
 CHANNELS_CONFIG = [
@@ -313,12 +315,29 @@ DEBUG = True
 
 ```
 meshcore-gui/
-├── meshcore_gui.py           # Main application
-├── README.md                 # This file
-└── docs/
-    ├── TROUBLESHOOTING.md    # BLE troubleshooting guide (Linux)
-    └── MeshCore_GUI_Design.docx  # Design document
+├── meshcore_gui.py                  # Entry point
+├── meshcore_gui/                    # Application package
+│   ├── __init__.py
+│   ├── ble_worker.py
+│   ├── config.py
+│   ├── main_page.py
+│   ├── protocols.py
+│   ├── route_builder.py
+│   ├── route_page.py
+│   └── shared_data.py
+├── docs/
+│   ├── SOLID_ANALYSIS.md
+│   ├── TROUBLESHOOTING.md
+│   ├── MeshCore_GUI_Design.docx
+│   ├── ble_capture_workflow_t_1000_e_explanation.md
+│   └── ble_capture_workflow_t_1000_e_uitleg.md
+├── .gitattributes
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
+
+For a SOLID principles analysis of the project structure, see [SOLID_ANALYSIS.md](docs/SOLID_ANALYSIS.md).
 
 ## Disclaimer
 
