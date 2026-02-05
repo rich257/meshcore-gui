@@ -60,6 +60,7 @@ class RoutePage:
             self._render_message_info(msg)
             self._render_hop_summary(msg, route)
             self._render_map(data, route)
+            self._render_send_panel(msg, route, data)
             self._render_route_table(msg, data, route)
 
     # ------------------------------------------------------------------
@@ -304,3 +305,51 @@ class RoutePage:
                 ui.label(
                     'ℹ️ Hop information is only available for received messages.'
                 ).classes('text-xs text-gray-400 italic mt-2')
+
+    def _render_send_panel(
+        self, msg: Dict, route: Dict, data: Dict,
+    ) -> None:
+        """Send widget pre-filled with route acknowledgement message."""
+        sender = msg.get('sender', 'Unknown')
+        path_len = route['msg_path_len']
+        path_hashes = msg.get('path_hashes', [])
+
+        # Build pre-filled message:
+        # @SenderName Received in Zwolle path(3); B8>7B>F5
+        parts = [f"@[{sender}] Received in Zwolle path({path_len})"]
+        if path_hashes:
+            path_str = '>'.join(h.upper() for h in path_hashes)
+            parts.append(f"; {path_str}")
+        prefilled = ''.join(parts)
+
+        # Channel options
+        ch_options = {
+            ch['idx']: f"[{ch['idx']}] {ch['name']}"
+            for ch in data['channels']
+        }
+        default_ch = data['channels'][0]['idx'] if data['channels'] else 0
+
+        with ui.card().classes('w-full'):
+            ui.label('📤 Reply').classes('font-bold text-gray-600')
+            with ui.row().classes('w-full items-center gap-2'):
+                msg_input = ui.input(
+                    value=prefilled,
+                ).classes('flex-grow')
+
+                ch_select = ui.select(
+                    options=ch_options, value=default_ch,
+                ).classes('w-32')
+
+                def send(inp=msg_input, sel=ch_select):
+                    text = inp.value
+                    if text:
+                        self._shared.put_command({
+                            'action': 'send_message',
+                            'channel': sel.value,
+                            'text': text,
+                        })
+                        inp.value = ''
+
+                ui.button(
+                    'Send', on_click=send,
+                ).classes('bg-blue-500 text-white')
