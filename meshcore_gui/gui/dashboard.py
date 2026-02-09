@@ -74,7 +74,7 @@ class DashboardPage:
         self._contacts = ContactsPanel(put_cmd, self._pin_store, self._shared.set_auto_add_enabled)
         self._map = MapPanel()
         self._input = InputPanel(put_cmd)
-        self._filter = FilterPanel(self._shared.set_bot_enabled)
+        self._filter = FilterPanel(self._shared.set_bot_enabled, put_cmd)
         self._messages = MessagesPanel()
         self._actions = ActionsPanel(put_cmd)
         self._rxlog = RxLogPanel()

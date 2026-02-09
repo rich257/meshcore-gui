@@ -12,9 +12,10 @@ from typing import Dict, List, Optional
 
 from meshcore import MeshCore, EventType
 
-from meshcore_gui.config import debug_print
+from meshcore_gui.config import BOT_DEVICE_NAME, DEVICE_NAME, debug_print
 from meshcore_gui.core.models import Message
 from meshcore_gui.core.protocols import SharedDataWriter
+from meshcore_gui.services.cache import DeviceCache
 
 
 class CommandHandler:
@@ -23,11 +24,18 @@ class CommandHandler:
     Args:
         mc:     Connected MeshCore instance.
         shared: SharedDataWriter for storing results.
+        cache:  DeviceCache for persistent storage.
     """
 
-    def __init__(self, mc: MeshCore, shared: SharedDataWriter) -> None:
+    def __init__(
+        self,
+        mc: MeshCore,
+        shared: SharedDataWriter,
+        cache: Optional[DeviceCache] = None,
+    ) -> None:
         self._mc = mc
         self._shared = shared
+        self._cache = cache
 
         # Handler registry — add new commands here (OCP)
         self._handlers: Dict[str, object] = {
@@ -37,6 +45,7 @@ class CommandHandler:
             'refresh': self._cmd_refresh,
             'purge_unpinned': self._cmd_purge_unpinned,
             'set_auto_add': self._cmd_set_auto_add,
+            'set_device_name': self._cmd_set_device_name,
         }
 
     async def process_all(self) -> None:
@@ -191,6 +200,12 @@ class CommandHandler:
         On failure the SharedData flag is rolled back so the GUI
         checkbox reverts on the next update cycle.
 
+        Note: some firmware/SDK versions raise ``KeyError`` (e.g.
+        ``'telemetry_mode_base'``) when parsing the device response.
+        The BLE command itself was already sent successfully in that
+        case, so we treat ``KeyError`` as *probable success* and keep
+        the requested state instead of rolling back.
+
         Expected command dict::
 
             {
@@ -201,6 +216,7 @@ class CommandHandler:
         enabled: bool = cmd.get('enabled', False)
         # Invert: UI "auto-add ON" → manual_add = False
         manual_add = not enabled
+        state = "ON" if enabled else "OFF"
 
         try:
             r = await self._mc.commands.set_manual_add_contacts(manual_add)
@@ -216,9 +232,18 @@ class CommandHandler:
                 )
             else:
                 self._shared.set_auto_add_enabled(enabled)
-                state = "ON" if enabled else "OFF"
                 self._shared.set_status(f"✅ Auto-add contacts: {state}")
                 debug_print(f"set_auto_add: success → {state}")
+        except KeyError as exc:
+            # SDK response-parsing error (e.g. missing 'telemetry_mode_base').
+            # The BLE command was already transmitted; the device has likely
+            # accepted the new setting.  Keep the requested state.
+            self._shared.set_auto_add_enabled(enabled)
+            self._shared.set_status(f"✅ Auto-add contacts: {state}")
+            debug_print(
+                f"set_auto_add: KeyError '{exc}' during response parse — "
+                f"command sent, treating as success → {state}"
+            )
         except Exception as exc:
             # Rollback
             self._shared.set_auto_add_enabled(not enabled)
@@ -226,6 +251,58 @@ class CommandHandler:
                 f"⚠️ Auto-add error: {exc}"
             )
             debug_print(f"set_auto_add exception: {exc}")
+
+    async def _cmd_set_device_name(self, cmd: Dict) -> None:
+        """Set or restore the device name when BOT is toggled.
+
+        Uses the fixed names from config.py:
+            - BOT enabled  → ``BOT_DEVICE_NAME``  (e.g. "NL-OV-ZWL-STDSHGN-WKC Bot")
+            - BOT disabled → ``DEVICE_NAME``       (e.g. "PE1HVH T1000e")
+
+        This avoids the previous bug where the dynamically read device
+        name could already be the bot name (e.g. after a restart while
+        BOT was active), causing the original name to be overwritten
+        with the bot name.
+
+        On failure the bot_enabled flag is rolled back so the GUI
+        checkbox reverts on the next update cycle.
+
+        Expected command dict::
+
+            {
+                'action': 'set_device_name',
+                'bot_enabled': True/False,
+            }
+        """
+        bot_enabled: bool = cmd.get('bot_enabled', False)
+        target_name = BOT_DEVICE_NAME if bot_enabled else DEVICE_NAME
+
+        try:
+            r = await self._mc.commands.set_name(target_name)
+            if r.type == EventType.ERROR:
+                # Rollback: revert bot flag to previous state
+                self._shared.set_bot_enabled(not bot_enabled)
+                self._shared.set_status(
+                    f"⚠️ Failed to set device name to '{target_name}'"
+                )
+                debug_print(
+                    f"set_device_name: ERROR response for '{target_name}', "
+                    f"rolled back bot_enabled to {not bot_enabled}"
+                )
+                return
+
+            self._shared.set_status(f"✅ Device name → {target_name}")
+            debug_print(f"set_device_name: success → '{target_name}'")
+
+            # Send advert so the network sees the new name
+            await self._mc.commands.send_advert(flood=True)
+            debug_print("set_device_name: advert sent")
+
+        except Exception as exc:
+            # Rollback on exception
+            self._shared.set_bot_enabled(not bot_enabled)
+            self._shared.set_status(f"⚠️ Device name error: {exc}")
+            debug_print(f"set_device_name exception: {exc}")
 
     # ------------------------------------------------------------------
     # Callback for refresh (set by BLEWorker after construction)

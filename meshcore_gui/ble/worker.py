@@ -154,7 +154,7 @@ class BLEWorker:
                 dedup=self._dedup,
                 bot=self._bot,
             )
-            self._cmd_handler = CommandHandler(mc=self.mc, shared=self.shared)
+            self._cmd_handler = CommandHandler(mc=self.mc, shared=self.shared, cache=self._cache)
             self._cmd_handler.set_load_data_callback(self._load_data)
 
             # Subscribe to events
@@ -227,6 +227,12 @@ class BLEWorker:
                     debug_print(f"Cache → channel key [{idx}]")
             except (ValueError, TypeError) as exc:
                 debug_print(f"Cache → bad channel key [{idx_str}]: {exc}")
+
+        # Restore original device name (if BOT was active when app closed)
+        cached_orig_name = self._cache.get_original_device_name()
+        if cached_orig_name:
+            self.shared.set_original_device_name(cached_orig_name)
+            debug_print(f"Cache → original device name: {cached_orig_name}")
 
     # ------------------------------------------------------------------
     # Initial data loading (refreshes cache)

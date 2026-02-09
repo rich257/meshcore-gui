@@ -198,8 +198,10 @@ The GUI opens automatically in your browser at `http://localhost:8080`
 | `CONTACT_RETENTION_DAYS` | `meshcore_gui/config.py` | Retention period for cached contacts (default: 90 days) |
 <!-- ADDED: Three retention settings above were missing from config table -->
 | `KEY_RETRY_INTERVAL` | `meshcore_gui/ble/worker.py` | Interval between background retry attempts for missing channel keys (default: 30s) |
+| `BOT_DEVICE_NAME` | `meshcore_gui/config.py` | Device name set when bot mode is active (default: `;NL-OV-ZWL-STDSHGN-WKC Bot`) |
+<!-- ADDED: BOT_DEVICE_NAME setting added in v5.5.0 -->
 | `BOT_CHANNELS` | `meshcore_gui/services/bot.py` | Channel indices the bot listens on |
-| `BOT_NAME` | `meshcore_gui/services/bot.py` | Display name prepended to bot replies |
+<!-- CHANGED: BOT_NAME removed in v5.5.0 — bot replies no longer include a name prefix -->
 | `BOT_COOLDOWN_SECONDS` | `meshcore_gui/services/bot.py` | Minimum seconds between bot replies |
 | `BOT_KEYWORDS` | `meshcore_gui/services/bot.py` | Keyword → reply template mapping |
 | BLE Address | Command line argument | |
@@ -290,20 +292,25 @@ If BLE connection fails, the GUI remains usable with cached data and shows an of
 
 The built-in bot automatically replies to messages containing recognised keywords. Enable or disable it via the 🤖 BOT checkbox in the filter bar.
 
+<!-- CHANGED: Bot device name switching feature added in v5.5.0 -->
+**Device name switching:** When the BOT checkbox is enabled, the device name is automatically changed to the configured `BOT_DEVICE_NAME` (default: `;NL-OV-ZWL-STDSHGN-WKC Bot`). The original device name is saved and restored when bot mode is disabled. This allows the mesh network to identify the node as a bot by its name.
+
 **Default keywords:**
+
+<!-- CHANGED: Removed "Zwolle Bot:" prefix from example replies — bot replies no longer include a name prefix (v5.5.0) -->
 
 | Keyword | Reply |
 |---------|-------|
-| `test` | `Zwolle Bot: <sender>, rcvd \| SNR <snr> \| path(<hops>); <repeaters>` |
-| `ping` | `Zwolle Bot: Pong!` |
-| `help` | `Zwolle Bot: test, ping, help` |
+| `test` | `<sender>, rcvd \| SNR <snr> \| path(<hops>); <repeaters>` |
+| `ping` | `Pong!` |
+| `help` | `test, ping, help` |
 
 **Safety guards:**
 - Only replies on configured channels (`BOT_CHANNELS`)
 - Ignores own messages and messages from other bots (names ending in "Bot")
 - Cooldown period between replies (default: 5 seconds)
 
-**Customisation:** Edit `BOT_KEYWORDS` in `meshcore_gui/services/bot.py`. Templates support `{bot}`, `{sender}`, `{snr}` and `{path}` variables.
+**Customisation:** Edit `BOT_KEYWORDS` in `meshcore_gui/services/bot.py`. Templates support `{sender}`, `{snr}` and `{path}` variables.
 
 ### RX Log
 - Received packets with SNR and type
@@ -353,10 +360,12 @@ The built-in bot automatically replies to messages containing recognised keyword
 ```
 
 - **BLEWorker**: Runs in separate thread with its own asyncio loop, with background retry for missing channel keys
-- **CommandHandler**: Executes commands (send message, advert, refresh, purge unpinned, set auto-add)
+- **CommandHandler**: Executes commands (send message, advert, refresh, purge unpinned, set auto-add, set bot name, restore name)
+<!-- CHANGED: Added set bot name and restore name commands (v5.5.0) -->
 - **EventHandler**: Processes incoming BLE events (messages, RX log)
 - **PacketDecoder**: Decodes raw LoRa packets and extracts route data
-- **MeshBot**: Keyword-triggered auto-reply on configured channels
+- **MeshBot**: Keyword-triggered auto-reply on configured channels with automatic device name switching
+<!-- CHANGED: Added device name switching to MeshBot description (v5.5.0) -->
 - **DualDeduplicator**: Prevents duplicate messages (hash-based + content-based)
 - **DeviceCache**: Local JSON cache per device for instant startup and offline resilience
 - **MessageArchive**: Persistent storage for messages and RX log with configurable retention and automatic cleanup
@@ -462,7 +471,8 @@ meshcore-gui/
 ├── meshcore_gui/                    # Application package
 │   ├── __init__.py
 │   ├── __main__.py                  # Alternative entry: python -m meshcore_gui
-│   ├── config.py                    # DEBUG flag, channel configuration, refresh interval, retention settings
+│   ├── config.py                    # DEBUG flag, channel configuration, refresh interval, retention settings, BOT_DEVICE_NAME
+<!-- CHANGED: Added BOT_DEVICE_NAME to config.py description (v5.5.0) -->
 │   ├── ble/                         # BLE communication layer
 │   │   ├── __init__.py
 │   │   ├── worker.py                # BLE thread, connection lifecycle, cache-first startup, background key retry

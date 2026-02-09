@@ -242,3 +242,19 @@ class DeviceCache:
     def get_last_updated(self) -> Optional[str]:
         """Return ISO timestamp of last cache update, or None."""
         return self._data.get("last_updated")
+
+    # ------------------------------------------------------------------
+    # Original device name (BOT feature)
+    # ------------------------------------------------------------------
+
+    def get_original_device_name(self) -> Optional[str]:
+        """Return cached original device name, or None."""
+        return self._data.get("original_device_name")
+
+    def set_original_device_name(self, name: Optional[str]) -> None:
+        """Store or clear the original device name and persist to disk."""
+        if name is None:
+            self._data.pop("original_device_name", None)
+        else:
+            self._data["original_device_name"] = name
+        self.save()

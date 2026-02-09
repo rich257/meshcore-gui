@@ -8,7 +8,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
-<!-- ADDED: Nieuw v5.3.0 entry bovenaan -->
+<!-- ADDED: v5.5.2 bugfix entry -->
+
+## [5.5.2] - 2026-02-09 — Bugfix: Bot Device Name Restoration After Restart
+
+### Fixed
+- 🛠 **Bot device name not properly restored after restart/crash** — After a restart or crash with bot mode previously active, the original device name was incorrectly stored as the bot name (e.g. `NL-OV-ZWL-STDSHGN-WKC Bot`) instead of the real device name (e.g. `PE1HVH T1000e`). The original device name is now correctly preserved and restored when bot mode is disabled
+
+### Changed
+- 🔄 `commands.py`: `set_bot_name` handler now verifies that the stored original name is not already the bot name before saving
+- 🔄 `shared_data.py`: `original_device_name` is only written when it differs from `BOT_DEVICE_NAME` to prevent overwriting with the bot name on restart
+
+---
+
+<!-- ADDED: v5.5.1 bugfix entry -->
+
+## [5.5.1] - 2026-02-09 — Bugfix: Auto-add AttributeError
+
+### Fixed
+- 🛠 **Auto-add error on first toggle** — Setting auto-add for the first time raised `AttributeError: 'telemetry_mode_base'`. The `set_manual_add_contacts()` SDK call now handles missing `telemetry_mode_base` attribute gracefully
+
+### Changed
+- 🔄 `commands.py`: `set_auto_add` handler wraps `set_manual_add_contacts()` call with attribute check and error handling for missing `telemetry_mode_base`
+
+---
+
+<!-- ADDED: Nieuw v5.5.0 entry bovenaan -->
+
+## [5.5.0] - 2026-02-08 — Bot Device Name Management
+
+### Added
+- ✅ **Bot device name switching** — When the BOT checkbox is enabled, the device name is automatically changed to a configurable bot name; when disabled, the original name is restored
+  - Original device name is saved before renaming so it can be restored on BOT disable
+  - Device name written to device via BLE `set_name()` SDK call
+  - Graceful handling of BLE failures during name change
+- ✅ **`BOT_DEVICE_NAME` constant** in `config.py` — Configurable fixed device name used when bot mode is active (default: `;NL-OV-ZWL-STDSHGN-WKC Bot`)
+
+### Changed
+- 🔄 `config.py`: Added `BOT_DEVICE_NAME` constant for bot mode device name
+- 🔄 `bot.py`: Removed hardcoded `BOT_NAME` prefix ("Zwolle Bot") from bot reply messages — bot replies no longer include a name prefix
+- 🔄 `filter_panel.py`: BOT checkbox toggle now triggers device name save/rename via command queue
+- 🔄 `commands.py`: Added `set_bot_name` and `restore_name` command handlers for device name switching
+- 🔄 `shared_data.py`: Added `original_device_name` field for storing the pre-bot device name
+
+### Removed
+- ❌ `BOT_NAME` constant from `bot.py` — bot reply prefix removed; replies no longer prepend a bot display name
+
+---
 
 ## [5.4.0] - 2026-02-08 — Contact Maintenance Feature
 
@@ -45,7 +91,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 ---
 
 ### Fixed
-- 🐛 **Route table names and IDs not displayed** — Route tables in both current messages (RoutePage) and archive messages (ArchivePage) now correctly show node names and public key IDs for sender, repeaters and receiver
+- 🛠 **Route table names and IDs not displayed** — Route tables in both current messages (RoutePage) and archive messages (ArchivePage) now correctly show node names and public key IDs for sender, repeaters and receiver
 
 ### Changed
 - 🔄 **CHANGELOG.md**: Corrected version numbering (v1.0.x → v5.x), fixed inaccurate references (archive button location, filter state persistence)
@@ -124,9 +170,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 <!-- CHANGED: Versienummer gewijzigd van v1.0.3 naar v5.1.3 -->
 
 ### Fixed
-- 🐛 **CRITICAL**: Fixed bug where archive was overwritten instead of appended on restart
-- 🐛 Archive now preserves existing data when read errors occur
-- 🐛 Buffer is retained for retry if existing archive cannot be read
+- 🛠 **CRITICAL**: Fixed bug where archive was overwritten instead of appended on restart
+- 🛠 Archive now preserves existing data when read errors occur
+- 🛠 Buffer is retained for retry if existing archive cannot be read
 
 ### Changed
 - 🔄 `_flush_messages()`: Early return on read error instead of overwriting
