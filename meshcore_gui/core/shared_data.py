@@ -65,6 +65,9 @@ class SharedData:
         # Auto-add contacts flag (synced with device)
         self.auto_add_enabled: bool = False
 
+        # Original device name (saved when BOT is enabled, restored when disabled)
+        self.original_device_name: Optional[str] = None
+
         # Message archive (persistent storage)
         self.archive: Optional[MessageArchive] = None
         if ble_address:
@@ -138,6 +141,26 @@ class SharedData:
         """Get auto-add contacts flag (thread-safe)."""
         with self.lock:
             return self.auto_add_enabled
+
+    # ------------------------------------------------------------------
+    # Original device name (BOT feature)
+    # ------------------------------------------------------------------
+
+    def set_original_device_name(self, name: Optional[str]) -> None:
+        """Store the original device name before BOT rename (thread-safe)."""
+        with self.lock:
+            self.original_device_name = name
+            debug_print(f"Original device name stored: {name}")
+
+    def get_original_device_name(self) -> Optional[str]:
+        """Get the stored original device name (thread-safe)."""
+        with self.lock:
+            return self.original_device_name
+
+    def get_device_name(self) -> str:
+        """Get the current device name (thread-safe)."""
+        with self.lock:
+            return self.device.name
 
     # ------------------------------------------------------------------
     # Command queue

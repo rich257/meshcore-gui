@@ -10,10 +10,16 @@ class FilterPanel:
 
     Args:
         set_bot_enabled: Callable to toggle the bot in SharedData.
+        put_command:     Callable to enqueue a BLE command.
     """
 
-    def __init__(self, set_bot_enabled: Callable[[bool], None]) -> None:
+    def __init__(
+        self,
+        set_bot_enabled: Callable[[bool], None],
+        put_command: Callable[[dict], None],
+    ) -> None:
         self._set_bot_enabled = set_bot_enabled
+        self._put_command = put_command
         self._container = None
         self._bot_checkbox = None
         self._channel_filters: Dict = {}
@@ -35,6 +41,14 @@ class FilterPanel:
                 ui.label('📻 Filter:').classes('text-sm text-gray-600')
                 self._container = ui.row().classes('gap-4')
 
+    def _on_bot_toggle(self, value: bool) -> None:
+        """Handle BOT checkbox toggle: update flag and queue name change."""
+        self._set_bot_enabled(value)
+        self._put_command({
+            'action': 'set_device_name',
+            'bot_enabled': value,
+        })
+
     def update(self, data: Dict) -> None:
         """Rebuild checkboxes when channel data changes."""
         if not self._container or not data['channels']:
@@ -47,7 +61,7 @@ class FilterPanel:
             self._bot_checkbox = ui.checkbox(
                 '🤖 BOT',
                 value=data.get('bot_enabled', False),
-                on_change=lambda e: self._set_bot_enabled(e.value),
+                on_change=lambda e: self._on_bot_toggle(e.value),
             )
             ui.label('│').classes('text-gray-300')
 

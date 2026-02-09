@@ -45,6 +45,19 @@ CHANNELS_CONFIG: List[Dict] = [
 
 
 # ==============================================================================
+# BOT DEVICE NAME
+# ==============================================================================
+
+# Fixed device name applied when the BOT checkbox is enabled.
+# The original device name is saved and restored when BOT is disabled.
+BOT_DEVICE_NAME: str = "NL-OV-ZWL-STDSHGN-WKC Bot"
+
+# Default device name used as fallback when restoring from BOT mode
+# and no original name was saved (e.g. after a restart).
+DEVICE_NAME: str = "PE1HVH T1000e"
+
+
+# ==============================================================================
 # CACHE / REFRESH
 # ==============================================================================
 

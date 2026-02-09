@@ -37,9 +37,9 @@ BOT_COOLDOWN_SECONDS: float = 5.0
 # The bot checks whether the incoming message text *contains* the keyword
 # (case-insensitive).  First match wins.
 BOT_KEYWORDS: Dict[str, str] = {
-    'test': '{bot}: {sender}, rcvd | SNR {snr} | {path}',
-    'ping': '{bot}: Pong!',
-    'help': '{bot}: test, ping, help',
+    'test': '{sender}, rcvd | SNR {snr} | {path}',
+    'ping': 'Pong!',
+    'help': 'test, ping, help',
 }
 
 
