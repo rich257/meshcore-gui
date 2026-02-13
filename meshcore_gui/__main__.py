@@ -61,6 +61,13 @@ def _page_route(msg_index: int):
         _route_page.render(msg_index)
 
 
+@ui.page('/route/{msg_index}/{msg_hash}')
+def _page_route_hash(msg_index: int, msg_hash: str):
+    """NiceGUI page handler — route visualization with hash lookup."""
+    if _route_page:
+        _route_page.render(msg_index, msg_hash)
+
+
 @ui.page('/archive')
 def _page_archive():
     """NiceGUI page handler — message archive."""

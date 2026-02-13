@@ -11,7 +11,7 @@ v4.1 changes
   :class:`~meshcore_gui.models.RouteNode` instead of plain dicts.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from nicegui import ui
 
@@ -38,15 +38,34 @@ class RoutePage:
     # Public
     # ------------------------------------------------------------------
 
-    def render(self, msg_index: int) -> None:
+    def render(self, msg_index: int, msg_hash: str = '') -> None:
         data = self._shared.get_snapshot()
         messages: List[Message] = data['messages']
 
-        if msg_index < 0 or msg_index >= len(messages):
+        msg: Optional[Message] = None
+
+        # Priority 1: find message by hash (stable across list mutations)
+        if msg_hash:
+            for m in messages:
+                if m.message_hash and m.message_hash == msg_hash:
+                    msg = m
+                    break
+            if msg:
+                debug_print(
+                    f"Route page: message found by hash {msg_hash}"
+                )
+
+        # Priority 2: fall back to index (for messages without hash or
+        # backward-compatible URLs)
+        if msg is None and 0 <= msg_index < len(messages):
+            msg = messages[msg_index]
+            debug_print(
+                f"Route page: message found by index {msg_index}"
+            )
+
+        if msg is None:
             ui.label('❌ Message not found').classes('text-xl p-8')
             return
-
-        msg = messages[msg_index]
         route = self._builder.build(msg, data)
 
         ui.page_title(f'Route — {msg.sender or "Unknown"}')

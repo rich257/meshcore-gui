@@ -74,11 +74,27 @@ class RouteBuilder:
         )
 
         if pubkey:
+            # Priority 1: live contact lookup via SharedData
             contact = self._shared.get_contact_by_prefix(pubkey)
+
+            # Priority 2: snapshot contacts (avoids lock-timing issues
+            # when the live store has been updated between get_snapshot
+            # and this lookup)
+            if not contact:
+                for pk, c in data['contacts'].items():
+                    if pk.startswith(pubkey) or pubkey.startswith(pk):
+                        contact = c
+                        debug_print(
+                            f"Route build: snapshot fallback FOUND "
+                            f"{c.get('adv_name', '?')}"
+                        )
+                        break
+
             debug_print(
                 f"Route build: contact lookup "
                 f"{'FOUND ' + contact.get('adv_name', '?') if contact else 'NOT FOUND'}"
             )
+
             if contact:
                 result['sender'] = RouteNode(
                     name=contact.get('adv_name') or pubkey[:8],
@@ -87,25 +103,27 @@ class RouteBuilder:
                     type=contact.get('type', 0),
                     pubkey=pubkey,
                 )
-        else:
-            # Deferred sender lookup: try fuzzy name match
-            sender_name = msg.sender
-            if sender_name:
-                match = self._shared.get_contact_by_name(sender_name)
-                if match:
-                    pubkey, contact_data = match
-                    contact = contact_data
-                    result['sender'] = RouteNode(
-                        name=contact_data.get('adv_name') or pubkey[:8],
-                        lat=contact_data.get('adv_lat', 0),
-                        lon=contact_data.get('adv_lon', 0),
-                        type=contact_data.get('type', 0),
-                        pubkey=pubkey,
-                    )
-                    debug_print(
-                        f"Route build: deferred name lookup "
-                        f"'{sender_name}' → pubkey={pubkey[:16]!r}"
-                    )
+
+        # Deferred sender lookup: try fuzzy name match when pubkey is
+        # missing OR when pubkey was set but no contact was resolved
+        if not contact and msg.sender:
+            match = self._shared.get_contact_by_name(msg.sender)
+            if match:
+                matched_pubkey, contact_data = match
+                contact = contact_data
+                # Prefer the original pubkey from the message if available
+                resolved_pubkey = pubkey or matched_pubkey
+                result['sender'] = RouteNode(
+                    name=contact_data.get('adv_name') or resolved_pubkey[:8],
+                    lat=contact_data.get('adv_lat', 0),
+                    lon=contact_data.get('adv_lon', 0),
+                    type=contact_data.get('type', 0),
+                    pubkey=resolved_pubkey,
+                )
+                debug_print(
+                    f"Route build: deferred name lookup "
+                    f"'{msg.sender}' → pubkey={resolved_pubkey[:16]!r}"
+                )
 
         # --- Resolve path nodes (priority order) ---
 
