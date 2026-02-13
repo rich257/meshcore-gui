@@ -27,9 +27,6 @@ class EventHandler:
         bot:     MeshBot for auto-reply logic.
     """
 
-    # Maximum entries in the path cache before oldest are evicted.
-    _PATH_CACHE_MAX = 200
-
     def __init__(
         self,
         shared: SharedDataWriter,
@@ -41,42 +38,6 @@ class EventHandler:
         self._decoder = decoder
         self._dedup = dedup
         self._bot = bot
-
-        # Cache: message_hash → path_hashes (from RX_LOG decode).
-        # Used by on_channel_msg fallback to recover hashes that the
-        # CHANNEL_MSG_RECV event does not provide.
-        self._path_cache: Dict[str, list] = {}
-
-    # ------------------------------------------------------------------
-    # Helpers — resolve names at receive time
-    # ------------------------------------------------------------------
-
-    def _resolve_path_names(self, path_hashes: list) -> list:
-        """Resolve 2-char path hashes to display names.
-
-        Performs a contact lookup for each hash *now* so the names are
-        captured at receive time and stored in the archive.
-
-        Args:
-            path_hashes: List of 2-char hex strings.
-
-        Returns:
-            List of display names (same length as *path_hashes*).
-            Unknown hashes become ``'0x<HH>'``.
-        """
-        names = []
-        for h in path_hashes:
-            if not h or len(h) < 2:
-                names.append('-')
-                continue
-            name = self._shared.get_contact_name_by_prefix(h)
-            # get_contact_name_by_prefix returns h[:8] as fallback,
-            # normalise to '0x<HH>' for 2-char hashes.
-            if name and name != h[:8]:
-                names.append(name)
-            else:
-                names.append(f'0x{h.upper()}')
-        return names
 
     # ------------------------------------------------------------------
     # RX_LOG_DATA — the single source of truth for path info
@@ -100,14 +61,6 @@ class EventHandler:
             decoded = self._decoder.decode(payload_hex)
             if decoded is not None:
                 message_hash = decoded.message_hash
-
-                # Cache path_hashes for correlation with on_channel_msg
-                if decoded.path_hashes and message_hash:
-                    self._path_cache[message_hash] = decoded.path_hashes
-                    # Evict oldest entries if cache is too large
-                    if len(self._path_cache) > self._PATH_CACHE_MAX:
-                        oldest = next(iter(self._path_cache))
-                        del self._path_cache[oldest]
                 
                 # Process decoded message if it's a group text
                 if decoded.payload_type == PayloadType.GroupText and decoded.is_decrypted:
@@ -123,7 +76,6 @@ class EventHandler:
                             sender_pubkey, _contact = match
 
                     snr_msg = self._extract_snr(payload)
-                    path_names = self._resolve_path_names(decoded.path_hashes)
 
                     self._shared.add_message(Message(
                         time=time_str,
@@ -135,15 +87,13 @@ class EventHandler:
                         path_len=decoded.path_length,
                         sender_pubkey=sender_pubkey,
                         path_hashes=decoded.path_hashes,
-                        path_names=path_names,
                         message_hash=decoded.message_hash,
                     ))
 
                     debug_print(
                         f"RX_LOG → message: hash={decoded.message_hash}, "
                         f"sender={decoded.sender!r}, ch={decoded.channel_idx}, "
-                        f"path={decoded.path_hashes}, "
-                        f"path_names={path_names}"
+                        f"path={decoded.path_hashes}"
                     )
 
                     self._bot.check_and_reply(
@@ -210,11 +160,6 @@ class EventHandler:
 
         snr = self._extract_snr(payload)
 
-        # Recover path_hashes from RX_LOG cache (CHANNEL_MSG_RECV
-        # does not carry them, but the preceding RX_LOG decode does).
-        path_hashes = self._path_cache.pop(msg_hash, []) if msg_hash else []
-        path_names = self._resolve_path_names(path_hashes)
-
         self._shared.add_message(Message(
             time=datetime.now().strftime('%H:%M:%S'),
             sender=sender,
@@ -224,8 +169,7 @@ class EventHandler:
             snr=snr,
             path_len=payload.get('path_len', 0),
             sender_pubkey=sender_pubkey,
-            path_hashes=path_hashes,
-            path_names=path_names,
+            path_hashes=[],
             message_hash=msg_hash,
         ))
 
@@ -257,19 +201,6 @@ class EventHandler:
 
         debug_print(f"DM payload keys: {list(payload.keys())}")
 
-        # Common fields for both Room and DM messages
-        msg_hash = payload.get('message_hash', '')
-        path_hashes = self._path_cache.pop(msg_hash, []) if msg_hash else []
-        path_names = self._resolve_path_names(path_hashes)
-
-        # DM payloads may report path_len=255 (0xFF) meaning "unknown";
-        # treat as 0 when no actual path data is available.
-        raw_path_len = payload.get('path_len', 0)
-        path_len = raw_path_len if raw_path_len < 255 else 0
-        if path_hashes:
-            # Trust actual decoded hashes over the raw header value
-            path_len = len(path_hashes)
-
         # --- Room Server message (txt_type 2) ---
         if txt_type == 2 and signature:
             # Resolve actual author from signature (author pubkey prefix)
@@ -284,11 +215,8 @@ class EventHandler:
                 channel=None,
                 direction='in',
                 snr=self._extract_snr(payload),
-                path_len=path_len,
+                path_len=payload.get('path_len', 0),
                 sender_pubkey=pubkey,  # room pubkey → for panel filtering
-                path_hashes=path_hashes,
-                path_names=path_names,
-                message_hash=msg_hash,
             ))
             debug_print(
                 f"Room msg from {author} (sig={signature}) "
@@ -311,11 +239,8 @@ class EventHandler:
             channel=None,
             direction='in',
             snr=self._extract_snr(payload),
-            path_len=path_len,
+            path_len=payload.get('path_len', 0),
             sender_pubkey=pubkey,
-            path_hashes=path_hashes,
-            path_names=path_names,
-            message_hash=msg_hash,
         ))
         debug_print(f"DM received from {sender}: {payload.get('text', '')[:30]}")
 

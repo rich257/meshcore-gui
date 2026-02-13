@@ -134,7 +134,6 @@ class MessageArchive:
                 "path_len": msg.path_len,
                 "sender_pubkey": msg.sender_pubkey,
                 "path_hashes": msg.path_hashes,
-                "path_names": msg.path_names,
                 "message_hash": msg.message_hash,
             }
             

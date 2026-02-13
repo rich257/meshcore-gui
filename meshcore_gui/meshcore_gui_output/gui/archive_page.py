@@ -375,7 +375,7 @@ class ArchivePage:
                     })
 
                 # Placeholder rows for unresolved hops
-                if not path_nodes and 0 < msg.path_len < 255:
+                if not path_nodes and msg.path_len > 0:
                     for i in range(msg.path_len):
                         rows.append({
                             'hop': str(i + 1),

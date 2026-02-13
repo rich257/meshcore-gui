@@ -67,46 +67,85 @@ class RouteBuilder:
         # Look up sender in contacts
         pubkey = msg.sender_pubkey
         contact: Optional[Dict] = None
+        resolved_pubkey: str = pubkey  # tracks the best pubkey we find
 
         debug_print(
             f"Route build: sender_pubkey={pubkey!r} "
             f"(len={len(pubkey)}, first2={pubkey[:2]!r})"
         )
 
+        # Step 1: pubkey → live contact lookup via SharedData
         if pubkey:
             contact = self._shared.get_contact_by_prefix(pubkey)
-            debug_print(
-                f"Route build: contact lookup "
-                f"{'FOUND ' + contact.get('adv_name', '?') if contact else 'NOT FOUND'}"
-            )
             if contact:
-                result['sender'] = RouteNode(
-                    name=contact.get('adv_name') or pubkey[:8],
-                    lat=contact.get('adv_lat', 0),
-                    lon=contact.get('adv_lon', 0),
-                    type=contact.get('type', 0),
-                    pubkey=pubkey,
+                debug_print(
+                    f"Route build: step 1 (live pubkey) FOUND "
+                    f"{contact.get('adv_name', '?')}"
                 )
 
-        # Always try name-based fallback if sender still unresolved
-        if result['sender'] is None:
-            sender_name = msg.sender
-            if sender_name:
-                match = self._shared.get_contact_by_name(sender_name)
-                if match:
-                    found_pubkey, contact_data = match
-                    contact = contact_data
-                    result['sender'] = RouteNode(
-                        name=contact_data.get('adv_name') or found_pubkey[:8],
-                        lat=contact_data.get('adv_lat', 0),
-                        lon=contact_data.get('adv_lon', 0),
-                        type=contact_data.get('type', 0),
-                        pubkey=found_pubkey,
-                    )
+        # Step 2: pubkey → snapshot contacts (avoids lock-timing issues)
+        if not contact and pubkey:
+            for pk, c in data['contacts'].items():
+                if pk.startswith(pubkey) or pubkey.startswith(pk):
+                    contact = c
+                    resolved_pubkey = pk
                     debug_print(
-                        f"Route build: name fallback "
-                        f"'{sender_name}' → pubkey={found_pubkey[:16]!r}"
+                        f"Route build: step 2 (snapshot pubkey) FOUND "
+                        f"{c.get('adv_name', '?')}"
                     )
+                    break
+
+        # Step 3: sender name → live contact lookup
+        if not contact and msg.sender:
+            match = self._shared.get_contact_by_name(msg.sender)
+            if match:
+                matched_pubkey, contact = match
+                resolved_pubkey = pubkey or matched_pubkey
+                debug_print(
+                    f"Route build: step 3 (live name) "
+                    f"'{msg.sender}' → pubkey={resolved_pubkey[:16]!r}"
+                )
+
+        # Step 4: sender name → snapshot contacts (lock-free, most
+        # reliable for archive messages where sender_pubkey may be empty)
+        if not contact and msg.sender:
+            sender_lower = msg.sender.lower()
+            for pk, c in data['contacts'].items():
+                adv_name = c.get('adv_name', '')
+                if not adv_name:
+                    continue
+                if (adv_name == msg.sender
+                        or adv_name.lower() == sender_lower
+                        or msg.sender.startswith(adv_name)
+                        or adv_name.startswith(msg.sender)):
+                    contact = c
+                    resolved_pubkey = pubkey or pk
+                    debug_print(
+                        f"Route build: step 4 (snapshot name) "
+                        f"'{msg.sender}' matched '{adv_name}' "
+                        f"→ pubkey={resolved_pubkey[:16]!r}"
+                    )
+                    break
+
+        # Build RouteNode from best available data
+        if contact:
+            result['sender'] = RouteNode(
+                name=contact.get('adv_name') or msg.sender or resolved_pubkey[:8],
+                lat=contact.get('adv_lat', 0),
+                lon=contact.get('adv_lon', 0),
+                type=contact.get('type', 0),
+                pubkey=resolved_pubkey,
+            )
+        elif msg.sender or pubkey:
+            # Step 5: final fallback — create RouteNode from message data
+            result['sender'] = RouteNode(
+                name=msg.sender or (pubkey[:8] if pubkey else 'Unknown'),
+                pubkey=pubkey,
+            )
+            debug_print(
+                f"Route build: step 5 (fallback) "
+                f"name={msg.sender!r}, pubkey={pubkey!r}"
+            )
 
         # --- Resolve path nodes (priority order) ---
 
@@ -115,7 +154,7 @@ class RouteBuilder:
 
         if rx_hashes:
             result['path_nodes'] = self._resolve_hashes(
-                rx_hashes, data['contacts'], msg.path_names,
+                rx_hashes, data['contacts'],
             )
             result['path_source'] = 'rx_log'
 
@@ -159,21 +198,11 @@ class RouteBuilder:
     def _resolve_hashes(
         hashes: List[str],
         contacts: Dict,
-        stored_names: Optional[List[str]] = None,
     ) -> List[RouteNode]:
-        """Resolve a list of 1-byte path hashes into RouteNode objects.
-
-        Args:
-            hashes:       List of 2-char hex strings.
-            contacts:     Contact dict from snapshot.
-            stored_names: Pre-resolved names from the archive (same
-                          length as *hashes*).  Used as fallback when
-                          the contact lookup fails (e.g. contact renamed
-                          or not yet loaded).
-        """
+        """Resolve a list of 1-byte path hashes into RouteNode objects."""
         nodes: List[RouteNode] = []
 
-        for idx, hop_hash in enumerate(hashes):
+        for hop_hash in hashes:
             if not hop_hash or len(hop_hash) < 2:
                 continue
 
@@ -190,15 +219,8 @@ class RouteBuilder:
                     pubkey=hop_hash,
                 ))
             else:
-                # Fallback: use the name that was stored at receive time
-                fallback_name = '-'
-                if stored_names and idx < len(stored_names):
-                    fallback_name = stored_names[idx] or '-'
-                if fallback_name == '-':
-                    fallback_name = f'0x{hop_hash.upper()}'
-
                 nodes.append(RouteNode(
-                    name=fallback_name,
+                    name='-',
                     pubkey=hop_hash,
                 ))
 

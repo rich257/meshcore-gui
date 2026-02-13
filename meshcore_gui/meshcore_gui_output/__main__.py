@@ -54,11 +54,23 @@ def _page_dashboard():
         _dashboard.render()
 
 
-@ui.page('/route/{msg_index}')
-def _page_route(msg_index: int):
-    """NiceGUI page handler — route visualization (new tab)."""
+@ui.page('/route/{msg_key}')
+def _page_route(msg_key: str):
+    """NiceGUI page handler — route visualization (new tab).
+
+    The *msg_key* encodes both the list index and (optionally) the
+    message hash separated by a hyphen: ``"42"`` or ``"42-A1B2C3D4"``.
+    The hash is the preferred lookup key (stable across list mutations);
+    the index is a fallback for messages without a hash.
+    """
     if _route_page:
-        _route_page.render(msg_index)
+        parts = msg_key.split('-', 1)
+        try:
+            msg_index = int(parts[0])
+        except (ValueError, IndexError):
+            msg_index = -1
+        msg_hash = parts[1] if len(parts) > 1 else ''
+        _route_page.render(msg_index, msg_hash)
 
 
 @ui.page('/archive')

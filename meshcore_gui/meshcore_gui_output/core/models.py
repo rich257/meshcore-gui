@@ -37,8 +37,6 @@ class Message:
         path_len:      Hop count from the LoRa frame header.
         sender_pubkey: Full public key of the sender (hex string).
         path_hashes:   List of 2-char hex strings, one per repeater.
-        path_names:    List of resolved display names for each path hash,
-                       captured at receive time so the archive is self-contained.
         message_hash:  Deterministic packet identifier (hex string).
         channel_name:  Human-readable channel name (resolved at add time).
     """
@@ -52,7 +50,6 @@ class Message:
     path_len: int = 0
     sender_pubkey: str = ""
     path_hashes: List[str] = field(default_factory=list)
-    path_names: List[str] = field(default_factory=list)
     message_hash: str = ""
     channel_name: str = ""
 
@@ -76,7 +73,6 @@ class Message:
             path_len=d.get("path_len", 0),
             sender_pubkey=d.get("sender_pubkey", ""),
             path_hashes=d.get("path_hashes", []),
-            path_names=d.get("path_names", []),
             message_hash=d.get("message_hash", ""),
             channel_name=d.get("channel_name", ""),
         )

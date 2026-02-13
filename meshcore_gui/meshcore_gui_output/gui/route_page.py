@@ -11,7 +11,7 @@ v4.1 changes
   :class:`~meshcore_gui.models.RouteNode` instead of plain dicts.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from nicegui import ui
 
@@ -38,15 +38,56 @@ class RoutePage:
     # Public
     # ------------------------------------------------------------------
 
-    def render(self, msg_index: int) -> None:
+    def render(self, msg_index: int, msg_hash: str = '') -> None:
         data = self._shared.get_snapshot()
         messages: List[Message] = data['messages']
 
-        if msg_index < 0 or msg_index >= len(messages):
-            ui.label('❌ Message not found').classes('text-xl p-8')
-            return
+        debug_print(
+            f"Route page: msg_index={msg_index}, msg_hash={msg_hash!r}, "
+            f"total_messages={len(messages)}"
+        )
 
-        msg = messages[msg_index]
+        msg: Optional[Message] = None
+
+        # Priority 1: find message by hash (stable across list mutations)
+        if msg_hash:
+            for m in messages:
+                if m.message_hash and m.message_hash == msg_hash:
+                    msg = m
+                    break
+            if msg:
+                debug_print(
+                    f"Route page: found by hash — sender={msg.sender!r}, "
+                    f"pubkey={msg.sender_pubkey!r}"
+                )
+            else:
+                debug_print(
+                    f"Route page: hash {msg_hash!r} NOT found in "
+                    f"{len(messages)} messages"
+                )
+
+        # Priority 2: fall back to index (for messages without hash or
+        # backward-compatible URLs)
+        if msg is None and 0 <= msg_index < len(messages):
+            msg = messages[msg_index]
+            debug_print(
+                f"Route page: found by index {msg_index} — "
+                f"sender={msg.sender!r}, pubkey={msg.sender_pubkey!r}"
+            )
+
+        if msg is None:
+            debug_print(
+                f"Route page: MESSAGE NOT FOUND — "
+                f"index={msg_index} (range 0..{len(messages)-1}), "
+                f"hash={msg_hash!r}"
+            )
+            ui.label('❌ Message not found').classes('text-xl p-8')
+            ui.label(
+                f'Index {msg_index} out of range '
+                f'(0–{len(messages) - 1}), hash lookup '
+                f'{"failed" if msg_hash else "not available"}.'
+            ).classes('text-sm text-gray-500 px-8')
+            return
         route = self._builder.build(msg, data)
 
         ui.page_title(f'Route — {msg.sender or "Unknown"}')
@@ -219,8 +260,8 @@ class RoutePage:
                     'role': '📡 Repeater',
                 })
 
-            # Placeholder rows (capped at 254; 255 = firmware "unknown")
-            if not path_nodes and 0 < msg_path_len < 255:
+            # Placeholder rows
+            if not path_nodes and msg_path_len > 0:
                 for i in range(msg_path_len):
                     rows.append({
                         'hop': str(i + 1),

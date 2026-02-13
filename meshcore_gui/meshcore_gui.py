@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MeshCore GUI — Threaded BLE Edition
+MeshCore GUI - Threaded BLE Edition
 ====================================
 
 Entry point.  Parses arguments, wires up the components, registers
@@ -9,7 +9,6 @@ NiceGUI pages and starts the server.
 Usage:
     python meshcore_gui.py <BLE_ADDRESS>
     python meshcore_gui.py <BLE_ADDRESS> --debug-on
-    python -m meshcore_gui <BLE_ADDRESS>
 
                    Author: PE1HVH
                   Version: 5.0
@@ -54,11 +53,17 @@ def _page_dashboard():
         _dashboard.render()
 
 
-@ui.page('/route/{msg_index}')
-def _page_route(msg_index: int):
+@ui.page('/route/{msg_key}')
+def _page_route(msg_key: str):
     """NiceGUI page handler — route visualization (new tab)."""
     if _route_page:
-        _route_page.render(msg_index)
+        parts = msg_key.split('-', 1)
+        try:
+            msg_index = int(parts[0])
+        except (ValueError, IndexError):
+            msg_index = -1
+        msg_hash = parts[1] if len(parts) > 1 else ''
+        _route_page.render(msg_index, msg_hash)
 
 
 @ui.page('/archive')
@@ -121,7 +126,7 @@ def main():
     worker.start()
 
     # Start NiceGUI server (blocks)
-    ui.run(title='MeshCore', port=8080, reload=False)
+    ui.run(title='MeshCore', port=8080, reload=False, storage_secret='meshcore-gui-secret')
 
 
 if __name__ == "__main__":

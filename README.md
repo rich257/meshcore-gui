@@ -346,6 +346,9 @@ Route data is resolved from two sources (in priority order):
 1. **RX log packet decode** — Path hashes extracted from the raw LoRa packet via `meshcoredecoder`
 2. **Contact out_path** — Stored route from the sender's contact record (fallback)
 
+<!-- CHANGED: Self-contained route table data (v1.7.1) -->
+Route table data (path hashes, resolved repeater names and channel names) is captured at receive time and stored in the archive. This means route tables (names and IDs) remain correct even when contacts are renamed, removed or offline. Sender identity is resolved via pubkey lookup with an automatic name-based fallback when the pubkey lookup fails. Map visualization still depends on live contact GPS data — see [Known Limitations](#known-limitations).
+
 <!-- ADDED: Room Server section (v5.7.0) -->
 ### Room Server
 
@@ -485,7 +488,7 @@ The built-in bot automatically replies to messages containing recognised keyword
 
 - **BLEWorker**: Runs in separate thread with its own asyncio loop, with background retry for missing channel keys
 - **CommandHandler**: Executes commands (send message, advert, refresh, purge unpinned, set auto-add, set bot name, restore name, login room, send room msg, remove single contact)
-- **EventHandler**: Processes incoming BLE events (messages, RX log)
+- **EventHandler**: Processes incoming BLE events (messages, RX log) with path hash caching between RX_LOG and fallback handlers, and resolves repeater names at receive time for self-contained archive data
 - **PacketDecoder**: Decodes raw LoRa packets and extracts route data
 - **MeshBot**: Keyword-triggered auto-reply on configured channels with automatic device name switching
 - **DualDeduplicator**: Prevents duplicate messages (hash-based + content-based)
@@ -506,7 +509,8 @@ The built-in bot automatically replies to messages containing recognised keyword
 1. **Channel discovery timing** — Dynamic channel discovery probes the device at startup; on very slow BLE connections, some channels may be missed on first attempt. Channels are retried in the background and cached for subsequent startups when `CHANNEL_CACHE_ENABLED = True`
 2. **BLE command reliability** — Resolved in v5.6.0. The meshcore SDK previously had a race condition where device responses were missed. The patched SDK ([PR #52](https://github.com/meshcore-dev/meshcore_py/pull/52)) uses subscribe-before-send to eliminate this. Until merged upstream, install the patched version: `pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/event-race-condition`
 3. **Initial load time** — GUI waits for BLE data before the first render is complete (mitigated by cache: if cached data exists, the GUI populates instantly)
-4. **Archive route visualization** — Route data for archived messages depends on contacts currently in memory; archived-only messages without recent contact data may show incomplete routes
+4. **Archive route map visualization** — Route table names and IDs are now stored at receive time and display correctly regardless of current contacts. However, the route *map* still depends on GPS coordinates from contacts currently in memory; archived messages without recent contact data may show incomplete map markers
+<!-- CHANGED: Partially resolved in v1.7.1 — route table self-contained, map still depends on live GPS -->
 5. **Room Server message latency** — Room Server messages travel over LoRa RF and arrive asynchronously (10–75 seconds per message). With many logged-in clients, receiving all historical messages can take 10+ minutes due to the round-robin push protocol
 
 ## Troubleshooting
@@ -598,7 +602,7 @@ meshcore-gui/
 │   │   ├── __init__.py
 │   │   ├── worker.py                # BLE thread, connection lifecycle, cache-first startup, background key retry
 │   │   ├── commands.py              # Command execution (send, refresh, advert)
-│   │   ├── events.py                # Event callbacks (messages, RX log)
+│   │   ├── events.py                # Event callbacks (messages, RX log) with path hash caching and name resolution at receive time
 │   │   └── packet_decoder.py        # Raw LoRa packet decoding via meshcoredecoder
 │   ├── core/                        # Domain models and shared state
 │   │   ├── __init__.py

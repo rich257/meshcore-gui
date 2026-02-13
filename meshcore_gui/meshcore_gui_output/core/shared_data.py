@@ -289,19 +289,14 @@ class SharedData:
     def add_message(self, msg: Message) -> None:
         """Add a Message to the store (max 100).
 
-        Also resolves channel_name and path_names from the current
-        contacts/channels list if not already set, and appends to the
-        room-message cache if the sender matches a known room, keeping
-        archive and cache in sync.
+        Also resolves channel_name from the current channels list if not
+        already set, and appends to the room-message cache if the sender
+        matches a known room, keeping archive and cache in sync.
         """
         with self.lock:
             # Resolve channel_name if missing
             if not msg.channel_name and msg.channel is not None:
                 msg.channel_name = self._resolve_channel_name(msg.channel)
-
-            # Resolve path_names if missing but path_hashes are present
-            if msg.path_hashes and not msg.path_names:
-                msg.path_names = self._resolve_path_names(msg.path_hashes)
 
             self.messages.append(msg)
             if len(self.messages) > 100:
@@ -336,33 +331,6 @@ class SharedData:
             if ch_idx == channel_idx:
                 return ch.get('name', f'Ch {channel_idx}')
         return f'Ch {channel_idx}'
-
-    def _resolve_path_names(self, path_hashes: list) -> list:
-        """Resolve 2-char path hashes to display names.
-
-        MUST be called with self.lock held.
-
-        Safety-net for messages whose path_names were not resolved at
-        receive time (e.g. older code path, or contacts not yet loaded).
-
-        Args:
-            path_hashes: List of 2-char hex strings.
-
-        Returns:
-            List of display names (same length as *path_hashes*).
-        """
-        names = []
-        for h in path_hashes:
-            if not h or len(h) < 2:
-                names.append('-')
-                continue
-            found_name = ''
-            for key, contact in self.contacts.items():
-                if key.lower().startswith(h.lower()):
-                    found_name = contact.get('adv_name', '')
-                    break
-            names.append(found_name if found_name else f'0x{h.upper()}')
-        return names
 
     def add_rx_log(self, entry: RxLogEntry) -> None:
         """Add an RxLogEntry (max 50, newest first)."""
