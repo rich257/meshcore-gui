@@ -199,5 +199,5 @@ class MessagesPanel:
                     'text-xs leading-tight cursor-pointer '
                     'hover:bg-blue-50 rounded px-1'
                 ).on('click', lambda e, i=orig_idx, h=msg.message_hash: ui.navigate.to(
-                    f'/route/{i}/{h}' if h else f'/route/{i}', new_tab=True
+                    f'/route/{i}?msg_hash={h}' if h else f'/route/{i}', new_tab=True
                 ))

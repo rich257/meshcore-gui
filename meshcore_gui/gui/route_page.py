@@ -42,6 +42,11 @@ class RoutePage:
         data = self._shared.get_snapshot()
         messages: List[Message] = data['messages']
 
+        debug_print(
+            f"Route page: msg_index={msg_index}, msg_hash={msg_hash!r}, "
+            f"total_messages={len(messages)}"
+        )
+
         msg: Optional[Message] = None
 
         # Priority 1: find message by hash (stable across list mutations)
@@ -52,7 +57,13 @@ class RoutePage:
                     break
             if msg:
                 debug_print(
-                    f"Route page: message found by hash {msg_hash}"
+                    f"Route page: found by hash — sender={msg.sender!r}, "
+                    f"pubkey={msg.sender_pubkey!r}"
+                )
+            else:
+                debug_print(
+                    f"Route page: hash {msg_hash!r} NOT found in "
+                    f"{len(messages)} messages"
                 )
 
         # Priority 2: fall back to index (for messages without hash or
@@ -60,11 +71,22 @@ class RoutePage:
         if msg is None and 0 <= msg_index < len(messages):
             msg = messages[msg_index]
             debug_print(
-                f"Route page: message found by index {msg_index}"
+                f"Route page: found by index {msg_index} — "
+                f"sender={msg.sender!r}, pubkey={msg.sender_pubkey!r}"
             )
 
         if msg is None:
+            debug_print(
+                f"Route page: MESSAGE NOT FOUND — "
+                f"index={msg_index} (range 0..{len(messages)-1}), "
+                f"hash={msg_hash!r}"
+            )
             ui.label('❌ Message not found').classes('text-xl p-8')
+            ui.label(
+                f'Index {msg_index} out of range '
+                f'(0–{len(messages) - 1}), hash lookup '
+                f'{"failed" if msg_hash else "not available"}.'
+            ).classes('text-sm text-gray-500 px-8')
             return
         route = self._builder.build(msg, data)
 

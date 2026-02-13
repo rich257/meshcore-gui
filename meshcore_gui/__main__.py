@@ -20,6 +20,7 @@ Usage:
 import sys
 
 from nicegui import ui
+from starlette.requests import Request
 
 # Allow overriding DEBUG before anything imports it
 import meshcore_gui.config as config
@@ -55,15 +56,14 @@ def _page_dashboard():
 
 
 @ui.page('/route/{msg_index}')
-def _page_route(msg_index: int):
-    """NiceGUI page handler — route visualization (new tab)."""
-    if _route_page:
-        _route_page.render(msg_index)
+def _page_route(request: Request, msg_index: int):
+    """NiceGUI page handler — route visualization (new tab).
 
-
-@ui.page('/route/{msg_index}/{msg_hash}')
-def _page_route_hash(msg_index: int, msg_hash: str):
-    """NiceGUI page handler — route visualization with hash lookup."""
+    Args:
+        request:   Starlette Request (injected by FastAPI/NiceGUI).
+        msg_index: Message index (path parameter, used as fallback).
+    """
+    msg_hash = request.query_params.get('msg_hash', '')
     if _route_page:
         _route_page.render(msg_index, msg_hash)
 
