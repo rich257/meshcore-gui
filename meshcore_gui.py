@@ -120,7 +120,7 @@ def main():
     worker.start()
 
     # Start NiceGUI server (blocks)
-    ui.run(title='MeshCore', port=8080, reload=False, storage_secret='meshcore-gui-secret')
+    ui.run(show=False, host='0.0.0.0', title='MeshCore', port=8081, reload=False, storage_secret='meshcore-gui-secret')
 
 
 if __name__ == "__main__":
