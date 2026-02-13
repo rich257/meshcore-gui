@@ -10,6 +10,8 @@ import logging
 
 from nicegui import ui
 
+from meshcore_gui import config
+
 from meshcore_gui.core.protocols import SharedDataReader
 from meshcore_gui.gui.panels import (
     ActionsPanel,
@@ -82,25 +84,25 @@ class DashboardPage:
 
         # Header
         with ui.header().classes('bg-blue-600 text-white'):
-            ui.label('🔗 MeshCore').classes('text-xl font-bold')
+            ui.label(f'🔗 MeshCore v{config.VERSION}').classes('text-xl font-bold')
             ui.space()
             self._status_label = ui.label('Starting...').classes('text-sm')
 
         # Three-column layout
-        with ui.row().classes('w-full h-full gap-2 p-2'):
+        with ui.row().classes('w-full h-full gap-2 p-2 flex-nowrap overflow-x-auto'):
             # Left column
             with ui.column().classes('w-72 gap-2'):
                 self._device.render()
                 self._contacts.render()
 
             # Centre column
-            with ui.column().classes('flex-grow gap-2'):
+            with ui.column().classes('flex-grow gap-2 min-w-[400px]'):
                 self._map.render()
                 self._messages.render()
                 self._room_server.render()
 
             # Right column
-            with ui.column().classes('w-64 gap-2'):
+            with ui.column().classes('w-64 gap-2 flex-shrink-0'):
                 self._actions.render()
                 self._rxlog.render()
 

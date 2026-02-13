@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
-## [5.9.0] - 2026-02-13 — Archive Channel Name Persistence
+## [1.7.0] - 2026-02-13 — Archive Channel Name Persistence
 
 ### Added
 - ✅ **Channel name stored in archive** — Messages now persist `channel_name` alongside the numeric `channel` index in `<ADDRESS>_messages.json`, so archived messages retain their human-readable channel name even when the device is not connected
@@ -39,7 +39,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
-## [5.8.0] - 2026-02-13 — Dashboard Layout Consolidation
+## [1.6.0] - 2026-02-13 — Dashboard Layout Consolidation
 
 ### Changed
 - 🔄 **Messages panel consolidated** — Filter checkboxes (DM + channels) and message input (text field, channel selector, Send button) are now integrated into the Messages panel, replacing the separate Filter and Input panels
@@ -62,9 +62,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
-<!-- ADDED: v5.7.0 feature + bugfix entry -->
+<!-- ADDED: v1.5.0 feature + bugfix entry -->
 
-## [5.7.0] - 2026-02-11 — Room Server Support, Dynamic Channel Discovery & Contact Management
+## [1.5.0] - 2026-02-11 — Room Server Support, Dynamic Channel Discovery & Contact Management
 
 ### Added
 - ✅ **Room Server panel** — Dedicated per-room-server message panel in the centre column below Messages. Each Room Server (type=3 contact) gets its own `ui.card()` with login/logout controls and message display
@@ -112,7 +112,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
-## [5.6.0] - 2026-02-09 — SDK Event Race Condition Fix
+## [1.4.0] - 2026-02-09 — SDK Event Race Condition Fix
 
 ### Fixed
 - 🛠 **BLE startup delay of ~2 minutes eliminated** — The meshcore Python SDK (`commands/base.py`) dispatched device response events before `wait_for_events()` registered its subscription. On busy networks with frequent `RX_LOG_DATA` events, this caused `send_device_query()` and `get_channel()` to fail repeatedly with `no_event_received`, wasting 110+ seconds in timeouts
@@ -133,9 +133,9 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 
 ---
 
-<!-- ADDED: v5.5.2 bugfix entry -->
+<!-- ADDED: v1.3.2 bugfix entry -->
 
-## [5.5.2] - 2026-02-09 — Bugfix: Bot Device Name Restoration After Restart
+## [1.3.2] - 2026-02-09 — Bugfix: Bot Device Name Restoration After Restart
 
 ### Fixed
 - 🛠 **Bot device name not properly restored after restart/crash** — After a restart or crash with bot mode previously active, the original device name was incorrectly stored as the bot name (e.g. `NL-OV-ZWL-STDSHGN-WKC Bot`) instead of the real device name (e.g. `PE1HVH T1000e`). The original device name is now correctly preserved and restored when bot mode is disabled
@@ -146,9 +146,9 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 
 ---
 
-<!-- ADDED: v5.5.1 bugfix entry -->
+<!-- ADDED: v1.3.1 bugfix entry -->
 
-## [5.5.1] - 2026-02-09 — Bugfix: Auto-add AttributeError
+## [1.3.1] - 2026-02-09 — Bugfix: Auto-add AttributeError
 
 ### Fixed
 - 🛠 **Auto-add error on first toggle** — Setting auto-add for the first time raised `AttributeError: 'telemetry_mode_base'`. The `set_manual_add_contacts()` SDK call now handles missing `telemetry_mode_base` attribute gracefully
@@ -158,9 +158,9 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 
 ---
 
-<!-- ADDED: New v5.5.0 entry at top -->
+<!-- ADDED: New v1.3.0 entry at top -->
 
-## [5.5.0] - 2026-02-08 — Bot Device Name Management
+## [1.3.0] - 2026-02-08 — Bot Device Name Management
 
 ### Added
 - ✅ **Bot device name switching** — When the BOT checkbox is enabled, the device name is automatically changed to a configurable bot name; when disabled, the original name is restored
@@ -181,7 +181,7 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 
 ---
 
-## [5.4.0] - 2026-02-08 — Contact Maintenance Feature
+## [1.2.0] - 2026-02-08 — Contact Maintenance Feature
 
 ### Added
 - ✅ **Pin/Unpin contacts** (Iteration A) — Toggle to pin individual contacts, protecting them from bulk deletion
@@ -219,16 +219,14 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 - 🛠 **Route table names and IDs not displayed** — Route tables in both current messages (RoutePage) and archive messages (ArchivePage) now correctly show node names and public key IDs for sender, repeaters and receiver
 
 ### Changed
-- 🔄 **CHANGELOG.md**: Corrected version numbering (v1.0.x → v5.x), fixed inaccurate references (archive button location, filter state persistence)
+- 🔄 **CHANGELOG.md**: Corrected version numbering to semantic versioning, fixed inaccurate references (archive button location, filter state persistence)
 - 🔄 **README.md**: Added Message Archive feature, updated project structure, configuration table and architecture diagram
 - 🔄 **MeshCore_GUI_Design.docx**: Added ArchivePage, MessageArchive, Models components; updated project structure, protocols, configuration and version history
 
 ---
 
-## [5.2.0] - 2026-02-07 — Archive Viewer Feature
+## [1.1.0] - 2026-02-07 — Archive Viewer Feature
 
-<!-- CHANGED: Version number changed from v1.0.4 to v5.2.0 — matches application version (v5.x).
-     __main__.py states Version: 5.0, the Design Document is v5.2. -->
 
 ### Added
 - ✅ **Archive Viewer Page** (`/archive`) — Full-featured message archive browser
@@ -290,9 +288,8 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 
 ---
 
-## [5.1.3] - 2026-02-07 — Critical Bugfix: Archive Overwrite Prevention
+## [1.0.3] - 2026-02-07 — Critical Bugfix: Archive Overwrite Prevention
 
-<!-- CHANGED: Version number changed from v1.0.3 to v5.1.3 -->
 
 ### Fixed
 - 🛠 **CRITICAL**: Fixed bug where archive was overwritten instead of appended on restart
@@ -324,9 +321,8 @@ overwriting all historical data with only the new buffered messages.
 
 ---
 
-## [5.1.2] - 2026-02-07 — RxLog message_hash Enhancement
+## [1.0.2] - 2026-02-07 — RxLog message_hash Enhancement
 
-<!-- CHANGED: Version number changed from v1.0.2 to v5.1.2 -->
 
 ### Added
 - ✅ `message_hash` field added to `RxLogEntry` model
@@ -345,9 +341,8 @@ overwriting all historical data with only the new buffered messages.
 
 ---
 
-## [5.1.1] - 2026-02-07 — Entry Point Fix
+## [1.0.1] - 2026-02-07 — Entry Point Fix
 
-<!-- CHANGED: Version number changed from v1.0.1 to v5.1.1 -->
 
 ### Fixed
 - ✅ `meshcore_gui.py` (root entry point) now passes ble_address to SharedData
@@ -358,9 +353,8 @@ overwriting all historical data with only the new buffered messages.
 
 ---
 
-## [5.1.0] - 2026-02-07 — Message & Metadata Persistence
+## [1.0.0] - 2026-02-07 — Message & Metadata Persistence
 
-<!-- CHANGED: Version number changed from v1.0.0 to v5.1.0 -->
 
 ### Added
 - ✅ MessageArchive class for persistent storage
