@@ -5,15 +5,24 @@
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-orange.svg)
 
-A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE) for on your desktop.
+A graphical user interface for MeshCore mesh network devices via Bluetooth Low Energy (BLE) for on your desktop or as a headless service on your local network.
 
 ## Why This Project Exists
 
 MeshCore devices like the SenseCAP T1000-E can be managed through two interfaces: USB serial and BLE (Bluetooth Low Energy). The official companion apps communicate with devices over BLE, but they are mobile-only. If you want to manage your MeshCore device from a desktop or laptop, the usual approach is to **flash USB-serial firmware** via the web flasher. However, this replaces the BLE Companion firmware, which means you can no longer use the device with mobile companion apps (Android/iOS).
 
-This project provides a **native desktop GUI** that connects to your MeshCore device over BLE — no firmware changes required. Your device stays on BLE Companion firmware and remains fully compatible with the mobile apps. The application is written in Python using cross-platform libraries and runs on **Linux, macOS and Windows**.
+This project provides a **native desktop GUI** that connects to your MeshCore device over BLE:
 
-> **Note:** This application has only been tested on Linux (Ubuntu 24.04). macOS and Windows should work since all dependencies (`bleak`, `nicegui`, `meshcore`) are cross-platform, but this has not been verified. Feedback and contributions for other platforms are welcome.
+- **No firmware changes required** — your device stays on BLE Companion firmware and remains fully compatible with the mobile apps
+- **Cross-platform** — written in Python using cross-platform libraries, runs on Linux, macOS and Windows
+- **Headless capable** — since the interface is web-based (powered by NiceGUI), it also runs headless on devices like a Raspberry Pi, accessible from any browser on your local network
+- **Message archive** — all messages are persisted to disk with configurable retention, so you maintain a searchable history of mesh traffic
+- **Bots and observation** — run a keyword-triggered auto-reply bot or passively observe mesh traffic 24/7 without dedicated hardware, using any device that has Bluetooth
+- **Room Server support** — login to Room Servers directly from the GUI with dedicated message panels per room
+
+> **Note:** This project is under active development. Not all features from the official MeshCore Companion apps have been implemented yet. Contributions and feedback are welcome.
+
+> **Note:** This application has been tested on Linux (Ubuntu 24.04) and Raspberry Pi 5 (Debian Bookworm, headless). macOS and Windows should work since all dependencies (`bleak`, `nicegui`, `meshcore`) are cross-platform, but this has not been verified. Feedback and contributions for other platforms are welcome.
 
 Under the hood it uses `bleak` for Bluetooth Low Energy (which talks to BlueZ on Linux, CoreBluetooth on macOS, and WinRT on Windows), `meshcore` as the protocol layer, `meshcoredecoder` for raw LoRa packet decryption and route extraction, and `NiceGUI` for the web-based interface.
 
@@ -60,6 +69,7 @@ Under the hood it uses `bleak` for Bluetooth Low Energy (which talks to BlueZ on
 | Platform | BLE Backend | Status |
 |---|---|---|
 | Linux (Ubuntu/Debian) | BlueZ/D-Bus | ✅ Tested |
+| Raspberry Pi 5 (Debian Bookworm) | BlueZ/D-Bus | ✅ Tested (headless) |
 | macOS | CoreBluetooth | ⬜ Untested |
 | Windows 10/11 | WinRT | ⬜ Untested |
 
@@ -71,6 +81,13 @@ Under the hood it uses `bleak` for Bluetooth Low Energy (which talks to BlueZ on
 ```bash
 sudo apt update
 sudo apt install python3-pip python3-venv bluetooth bluez
+```
+
+**Raspberry Pi (Raspberry Pi OS Lite):**
+```bash
+sudo apt update
+sudo apt install python3-pip python3-venv bluetooth bluez git
+sudo usermod -aG bluetooth $USER
 ```
 
 **macOS:**
@@ -176,30 +193,113 @@ python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on
 
 The GUI opens automatically in your browser at `http://localhost:8080`
 
+## Running Headless on Your Local Network
+
+MeshCore GUI uses NiceGUI, a web-based UI framework. This means the application runs as a web server — no monitor, keyboard or desktop environment is required. This makes it ideal for running on a headless device like a Raspberry Pi connected to your local network.
+
+### Setup
+
+Install the application on your headless device (e.g. a Raspberry Pi) following the standard installation steps above. Since NiceGUI serves a web interface, any device on the same network can access the dashboard through a browser.
+
+### Starting the application
+
+```bash
+cd ~/meshcore-gui
+source venv/bin/activate
+nohup python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on > ~/meshcore.log 2>&1 &
+```
+
+`nohup` keeps the application running after you close your SSH session. Output is redirected to `~/meshcore.log`.
+
+### Accessing the interface
+
+Open a browser on any device on your local network and navigate to:
+
+```
+http://<hostname-or-ip>:8080
+```
+
+For example: `http://raspberrypi5nas:8080` or `http://192.168.2.234:8080`
+
+This works from any device on the same network — desktop, laptop, tablet or phone.
+
+### Running as a systemd service (recommended)
+
+For a permanent setup that starts automatically on boot and restarts on crashes, create a systemd service:
+
+```bash
+sudo nano /etc/systemd/system/meshcore-gui.service
+```
+
+```ini
+[Unit]
+Description=MeshCore GUI - BLE Mesh Network Dashboard
+After=network.target bluetooth.target
+Wants=bluetooth.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/home/your-username/meshcore-gui
+ExecStart=/home/your-username/meshcore-gui/venv/bin/python meshcore_gui.py literal:AA:BB:CC:DD:EE:FF
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Replace `your-username` and `AA:BB:CC:DD:EE:FF` with your actual username and BLE device address.
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable meshcore-gui
+sudo systemctl start meshcore-gui
+```
+
+### Migrating existing data
+
+If you are moving from an existing installation, copy the data directory to preserve your cache, pinned contacts, room server passwords and message archive:
+
+```bash
+scp -r ~/.meshcore-gui user@headless-device:~/
+```
+
+### Raspberry Pi 5 notes
+
+The Raspberry Pi 5 is a good fit for running MeshCore GUI headless:
+
+- **BLE**: Built-in Bluetooth 5.0/BLE — no USB dongle required
+- **RAM**: 2 GB is sufficient; 4 GB or more provides extra headroom for long-running operation
+- **OS**: Raspberry Pi OS Lite (64-bit, Bookworm) — no desktop environment needed
+- **Storage**: 16 GB+ SD card or NVMe; the application stores cache and archive data in `~/.meshcore-gui/`
+- **Power**: Low idle power consumption (~5W), suitable for 24/7 operation
+
+Make sure your user is in the `bluetooth` group:
+
+```bash
+sudo usermod -aG bluetooth $USER
+```
+
 ## Configuration
 
 | Setting | Location | Description |
 |---------|----------|-------------|
 | `DEBUG` | `meshcore_gui/config.py` | Set to `True` for verbose logging (or use `--debug-on`) |
 | `MAX_CHANNELS` | `meshcore_gui/config.py` | Maximum channel slots to probe on device (default: 8) |
-<!-- CHANGED: Replaced CHANNELS_CONFIG with MAX_CHANNELS (v5.7.0) -->
 | `CHANNEL_CACHE_ENABLED` | `meshcore_gui/config.py` | Cache discovered channels to disk for faster startup (default: `False` — always fresh from device) |
-<!-- ADDED: CHANNEL_CACHE_ENABLED setting (v5.7.0) -->
 | `CONTACT_REFRESH_SECONDS` | `meshcore_gui/config.py` | Interval between periodic contact refreshes (default: 300s / 5 minutes) |
 | `MESSAGE_RETENTION_DAYS` | `meshcore_gui/config.py` | Retention period for archived messages (default: 30 days) |
 | `RXLOG_RETENTION_DAYS` | `meshcore_gui/config.py` | Retention period for archived RX log entries (default: 7 days) |
 | `CONTACT_RETENTION_DAYS` | `meshcore_gui/config.py` | Retention period for cached contacts (default: 90 days) |
-<!-- ADDED: Three retention settings above were missing from config table -->
 | `KEY_RETRY_INTERVAL` | `meshcore_gui/ble/worker.py` | Interval between background retry attempts for missing channel keys (default: 30s) |
 | `BOT_DEVICE_NAME` | `meshcore_gui/config.py` | Device name set when bot mode is active (default: `;NL-OV-ZWL-STDSHGN-WKC Bot`) |
-<!-- ADDED: BOT_DEVICE_NAME setting added in v5.5.0 -->
 | `BOT_CHANNELS` | `meshcore_gui/services/bot.py` | Channel indices the bot listens on |
-<!-- CHANGED: BOT_NAME removed in v5.5.0 — bot replies no longer include a name prefix -->
 | `BOT_COOLDOWN_SECONDS` | `meshcore_gui/services/bot.py` | Minimum seconds between bot replies |
 | `BOT_KEYWORDS` | `meshcore_gui/services/bot.py` | Keyword → reply template mapping |
 | Room passwords | `~/.meshcore-gui/room_passwords/<ADDRESS>.json` | Per-device Room Server passwords (managed via GUI, stored outside repository) |
-<!-- ADDED: Room password store location (v5.7.0) -->
-| BLE Address | Command line argument | |
+| BLE Address | Command line argument | Device MAC address (or UUID on macOS) |
 
 ## Functionality
 
@@ -382,42 +482,32 @@ The built-in bot automatically replies to messages containing recognised keyword
               │  archive/)  │     │  Store        │
               └─────────────┘     └───────────────┘
 ```
-```
 
 - **BLEWorker**: Runs in separate thread with its own asyncio loop, with background retry for missing channel keys
 - **CommandHandler**: Executes commands (send message, advert, refresh, purge unpinned, set auto-add, set bot name, restore name, login room, send room msg, remove single contact)
-<!-- CHANGED: Added room server and single contact commands (v5.7.0) -->
 - **EventHandler**: Processes incoming BLE events (messages, RX log)
 - **PacketDecoder**: Decodes raw LoRa packets and extracts route data
 - **MeshBot**: Keyword-triggered auto-reply on configured channels with automatic device name switching
-<!-- CHANGED: Added device name switching to MeshBot description (v5.5.0) -->
 - **DualDeduplicator**: Prevents duplicate messages (hash-based + content-based)
 - **DeviceCache**: Local JSON cache per device for instant startup and offline resilience
 - **MessageArchive**: Persistent storage for messages and RX log with configurable retention and automatic cleanup
-<!-- ADDED: MessageArchive component description -->
 - **PinStore**: Persistent pin state storage per device (JSON-backed)
 - **ContactCleanerService**: Bulk-delete logic for unpinned contacts with statistics
 - **RoomServerPanel**: Per-room-server card management with login/logout, message display and send functionality
-<!-- ADDED: RoomServerPanel component (v5.7.0) -->
 - **RoomPasswordStore**: Persistent Room Server password storage per device in `~/.meshcore-gui/room_passwords/` (JSON-backed, analogous to PinStore)
-<!-- ADDED: RoomPasswordStore component (v5.7.0) -->
 - **SharedData**: Thread-safe data sharing between BLE and GUI via Protocol interfaces
 - **DashboardPage**: Main GUI with modular panels (device, contacts, map, messages, etc.)
 - **RoutePage**: Standalone route visualization page opened per message
 - **ArchivePage**: Archive viewer with filters, pagination and inline route tables
-<!-- ADDED: ArchivePage component description -->
 - **Communication**: Via command queue (GUI→BLE) and shared state with flags (BLE→GUI)
 
 ## Known Limitations
 
 1. **Channel discovery timing** — Dynamic channel discovery probes the device at startup; on very slow BLE connections, some channels may be missed on first attempt. Channels are retried in the background and cached for subsequent startups when `CHANNEL_CACHE_ENABLED = True`
-<!-- CHANGED: Replaced "Channels hardcoded" with dynamic discovery note (v5.7.0) -->
 2. **BLE command reliability** — Resolved in v5.6.0. The meshcore SDK previously had a race condition where device responses were missed. The patched SDK ([PR #52](https://github.com/meshcore-dev/meshcore_py/pull/52)) uses subscribe-before-send to eliminate this. Until merged upstream, install the patched version: `pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/event-race-condition`
 3. **Initial load time** — GUI waits for BLE data before the first render is complete (mitigated by cache: if cached data exists, the GUI populates instantly)
 4. **Archive route visualization** — Route data for archived messages depends on contacts currently in memory; archived-only messages without recent contact data may show incomplete routes
-<!-- ADDED: Archive-related limitation -->
 5. **Room Server message latency** — Room Server messages travel over LoRa RF and arrive asynchronously (10–75 seconds per message). With many logged-in clients, receiving all historical messages can take 10+ minutes due to the round-robin push protocol
-<!-- ADDED: Room Server latency limitation (v5.7.0) -->
 
 ## Troubleshooting
 
@@ -504,7 +594,6 @@ meshcore-gui/
 │   ├── __init__.py
 │   ├── __main__.py                  # Alternative entry: python -m meshcore_gui
 │   ├── config.py                    # DEBUG flag, channel discovery settings (MAX_CHANNELS, CHANNEL_CACHE_ENABLED), refresh interval, retention settings, BOT_DEVICE_NAME
-<!-- CHANGED: Updated config.py description — removed CHANNELS_CONFIG, added dynamic channel settings (v5.7.0) -->
 │   ├── ble/                         # BLE communication layer
 │   │   ├── __init__.py
 │   │   ├── worker.py                # BLE thread, connection lifecycle, cache-first startup, background key retry
@@ -532,7 +621,6 @@ meshcore-gui/
 │   │       ├── messages_panel.py    # Filtered message display with archive button
 │   │       ├── actions_panel.py     # Refresh and advert buttons
 │   │       ├── room_server_panel.py # Per-room-server card with login/logout and messages
-<!-- ADDED: room_server_panel.py (v5.7.0) -->
 │   │       └── rxlog_panel.py       # RX log table
 │   └── services/                    # Business logic
 │       ├── __init__.py
@@ -543,7 +631,6 @@ meshcore-gui/
 │       ├── message_archive.py       # Persistent message and RX log archive
 │       ├── pin_store.py             # Persistent pin state storage per device
 │       ├── room_password_store.py   # Persistent Room Server password storage per device
-<!-- ADDED: room_password_store.py (v5.7.0) -->
 │       └── route_builder.py         # Route data construction
 ├── docs/
 │   ├── TROUBLESHOOTING.md           # BLE troubleshooting guide (Linux)
@@ -556,6 +643,16 @@ meshcore-gui/
 ├── CHANGELOG.md
 └── README.md
 ```
+
+## Roadmap
+
+This project is under active development. The most common features from the official MeshCore Companion apps are being implemented gradually. Planned additions include:
+
+- [ ] **Observer mode** — passively monitor mesh traffic without transmitting, useful for network analysis, coverage mapping and long-term logging
+- [ ] **Room Server administration** — authenticate as admin to manage Room Server settings and users directly from the GUI
+- [ ] **Repeater management** — connect to repeater nodes to view status and adjust configuration
+
+Have a feature request or want to contribute? Open an issue or submit a pull request.
 
 ## Disclaimer
 
