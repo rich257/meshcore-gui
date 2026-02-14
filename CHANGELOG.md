@@ -8,6 +8,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [1.8.0] - 2026-02-14 — DRY Message Construction & Archive Layout Unification
+
+### Fixed
+- 🛠 **Case-sensitive prefix matching** — `get_contact_name_by_prefix()` and `get_contact_by_prefix()` in `shared_data.py` failed to match path hashes (uppercase, e.g. `'B8'`) against contact pubkeys (lowercase, e.g. `'b8a3f2...'`). Added `.lower()` to both sides of the comparison, consistent with `_resolve_path_names()` which already had it
+- 🛠 **Route page 404 from archive** — Archive page linked to `/route/{hash}` but route was registered as `/route/{msg_index:int}`, causing a JSON parse error for hex hash strings. Route parameter changed to `str` with 3-strategy lookup (index → memory hash → archive fallback)
+- 🛠 **Three entry points out of sync** — `meshcore_gui.py` (root), `meshcore_gui/meshcore_gui.py` (inner) and `meshcore_gui/__main__.py` had diverging route registrations. All three now use identical `/route/{msg_key}` with `str` parameter
+
+### Changed
+- 🔄 **`core/models.py` — DRY factory methods and formatting**
+  - `Message.now_timestamp()`: static method replacing 7× hardcoded `datetime.now().strftime('%H:%M:%S')` across `events.py` and `commands.py`
+  - `Message.incoming()`: classmethod factory for received messages (`direction='in'`, auto-timestamp)
+  - `Message.outgoing()`: classmethod factory for sent messages (`sender='Me'`, `direction='out'`, auto-timestamp)
+  - `Message.format_line(channel_names)`: single-line display formatting (`"12:34:56 ← [Public] [2h✓] PE1ABC: Hello mesh!"`), replacing duplicate inline formatting in `messages_panel.py` and `archive_page.py`
+- 🔄 **`ble/events.py`** — 4× `Message(...)` constructors replaced by `Message.incoming()`; `datetime` import removed
+- 🔄 **`ble/commands.py`** — 3× `Message(...)` constructors replaced by `Message.outgoing()`; `datetime` import removed
+- 🔄 **`gui/panels/messages_panel.py`** — 15 lines inline formatting replaced by single `msg.format_line(channel_names)` call
+- 🔄 **`gui/archive_page.py` — Layout unified with main page**
+  - Multi-row card layout replaced by single-line `msg.format_line()` in monospace container (same style as main page)
+  - DM added to channel filter dropdown (post-filter on `channel is None`)
+  - Message click opens `/route/{message_hash}` in new tab (was: no click handler on archive messages)
+  - Removed `_render_message_card()` (98 lines) and `_render_archive_route()` (75 lines)
+  - Removed `RouteBuilder` dependency and `TYPE_LABELS` import
+  - File reduced from 445 to 267 lines
+- 🔄 **`gui/route_page.py`** — `render(msg_index: int)` → `render(msg_key: str)` with 3-strategy message lookup: (1) numeric index from in-memory list, (2) hash match in memory, (3) `archive.get_message_by_hash()` fallback
+- 🔄 **`services/message_archive.py`** — New method `get_message_by_hash(hash)` for single-message lookup by packet hash
+- 🔄 **`__main__.py` + `meshcore_gui.py` (both)** — Route changed from `/route/{msg_index}` (int) to `/route/{msg_key}` (str)
+
+### Impact
+- DRY: timestamp formatting 7→1 definition, message construction 7→2 factories, line formatting 2→1 method
+- Archive page visually consistent with main messages panel (single-line, monospace)
+- Archive messages now clickable to open route visualization (was: only in-memory messages)
+- Case-insensitive prefix matching fixes path name resolution for contacts with uppercase path hashes
+- No breaking changes to BLE protocol handling, dedup, bot, or data storage
+
+### Known Limitations
+- DM filter in archive uses post-filtering (query without channel filter + filter on `channel is None`); becomes exact when `query_messages()` gets native DM support
+
+### Parked for later
+- Multi-path tracking (enrich RxLogEntry with multiple path observations)
+- Events correlation improvements (only if proven data loss after `.lower()` fix)
+
+---
+
 ## [1.7.0] - 2026-02-13 — Archive Channel Name Persistence
 
 ### Added
@@ -239,6 +282,7 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
   - Clickable messages for route visualization (where available)
   - **💬 Reply functionality** — Expandable reply panel per message
   - **🗺️ Inline route table** — Expandable route display per archive message with sender, repeaters and receiver (names, IDs, node types)
+  - *(Note: Reply panels and inline route tables removed in v1.8.0, replaced by click-to-route navigation via message hash)*
 
 <!-- CHANGED: "Filter state persistence (app.storage.user)" replaced with "Filter state stored in 
      instance variables" — the code (archive_page.py:36-40) uses self._current_page etc., 
@@ -281,8 +325,7 @@ pip install --force-reinstall git+https://github.com/PE1HVH/meshcore_py.git@fix/
 - No impact on main UI (separate page)
 
 ### Known Limitations
-- Route visualization only works for messages in recent buffer (last 100)
-- Archived-only messages show warning notification
+- ~~Route visualization only works for messages in recent buffer (last 100)~~ — Fixed in v1.8.0: archive messages now support click-to-route via `get_message_by_hash()` fallback
 - Text search is linear scan (no indexing yet)
 - Sender filter exists in API but not in UI yet
 
