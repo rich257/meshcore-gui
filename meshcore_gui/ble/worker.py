@@ -9,13 +9,26 @@ Responsibilities deliberately kept narrow (SRP):
     - Thread lifecycle and asyncio loop
     - BLE connection and initial data loading
     - Wiring CommandHandler and EventHandler
+    - PIN pairing via built-in D-Bus agent
+    - Disconnect detection and automatic reconnect
 
 Command execution  → :mod:`meshcore_gui.ble.commands`
 Event handling     → :mod:`meshcore_gui.ble.events`
 Packet decoding    → :mod:`meshcore_gui.ble.packet_decoder`
+PIN agent          → :mod:`meshcore_gui.ble.ble_agent`
+Reconnect logic    → :mod:`meshcore_gui.ble.ble_reconnect`
 Bot logic          → :mod:`meshcore_gui.services.bot`
 Deduplication      → :mod:`meshcore_gui.services.dedup`
 Cache              → :mod:`meshcore_gui.services.cache`
+
+v5.2 changes (BLE stability)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Built-in D-Bus PIN agent: eliminates ``bt-agent.service``.
+- Automatic bond removal on startup (clean slate).
+- Disconnect detection in the main loop with auto-reconnect.
+- Bond cleanup before each reconnect attempt (fixes "PIN or Key
+  Missing" errors from stale BlueZ bonds).
+- Linear backoff reconnect (configurable via ``RECONNECT_*`` settings).
 
 v5.1 changes
 ~~~~~~~~~~~~~
@@ -37,14 +50,19 @@ from meshcore import MeshCore, EventType
 from meshcore_gui.config import (
     BLE_DEFAULT_TIMEOUT,
     BLE_LIB_DEBUG,
+    BLE_PIN,
     CHANNEL_CACHE_ENABLED,
     CONTACT_REFRESH_SECONDS,
     MAX_CHANNELS,
+    RECONNECT_BASE_DELAY,
+    RECONNECT_MAX_RETRIES,
     debug_data,
     debug_print,
     pp,
 )
 from meshcore_gui.core.protocols import SharedDataWriter
+from meshcore_gui.ble.ble_agent import BleAgentManager
+from meshcore_gui.ble.ble_reconnect import reconnect_loop, remove_bond
 from meshcore_gui.ble.commands import CommandHandler
 from meshcore_gui.ble.events import EventHandler
 from meshcore_gui.ble.packet_decoder import PacketDecoder
@@ -73,6 +91,10 @@ class BLEWorker:
         self.shared = shared
         self.mc: Optional[MeshCore] = None
         self.running = True
+        self._disconnected = False
+
+        # BLE PIN agent (replaces external bt-agent.service)
+        self._agent = BleAgentManager(pin=BLE_PIN)
 
         # Local cache (one file per device)
         self._cache = DeviceCache(address)
@@ -106,33 +128,157 @@ class BLEWorker:
         asyncio.run(self._async_main())
 
     async def _async_main(self) -> None:
-        await self._connect()
-        if self.mc:
-            last_contact_refresh = time.time()
-            last_key_retry = time.time()
-            last_cleanup = time.time()
+        # ── Step 1: Start PIN agent (BEFORE any BLE connection) ──
+        await self._agent.start()
 
+        # ── Step 2: Remove stale bond (clean slate) ──
+        await remove_bond(self.address)
+        await asyncio.sleep(1)
+
+        # ── Step 3: Connect + main loop (with reconnect wrapper) ──
+        try:
             while self.running:
-                await self._cmd_handler.process_all()
+                self._disconnected = False
+                await self._connect()
 
-                now = time.time()
+                if not self.mc:
+                    # Initial connect failed — wait and retry
+                    print("BLE: Initial connection failed, retrying in 30s...")
+                    self.shared.set_status("⚠️ Connection failed — retrying...")
+                    await asyncio.sleep(30)
+                    await remove_bond(self.address)
+                    await asyncio.sleep(1)
+                    continue
 
-                # Periodic contact refresh
-                if now - last_contact_refresh > CONTACT_REFRESH_SECONDS:
-                    await self._refresh_contacts()
-                    last_contact_refresh = now
+                # ── Main loop ──
+                last_contact_refresh = time.time()
+                last_key_retry = time.time()
+                last_cleanup = time.time()
 
-                # Background key retry for missing channels
-                if self._pending_keys and now - last_key_retry > KEY_RETRY_INTERVAL:
-                    await self._retry_missing_keys()
-                    last_key_retry = now
+                while self.running and not self._disconnected:
+                    try:
+                        await self._cmd_handler.process_all()
+                    except Exception as e:
+                        error_str = str(e).lower()
+                        if any(
+                            kw in error_str
+                            for kw in (
+                                "not connected",
+                                "disconnected",
+                                "dbus",
+                                "pin or key missing",
+                                "connection reset",
+                                "broken pipe",
+                            )
+                        ):
+                            print(f"BLE: ⚠️  Connection error detected: {e}")
+                            self._disconnected = True
+                            break
+                        debug_print(f"Command processing error: {e}")
 
-                # Periodic cleanup of old data (daily)
-                if now - last_cleanup > CLEANUP_INTERVAL:
-                    await self._cleanup_old_data()
-                    last_cleanup = now
+                    now = time.time()
 
-                await asyncio.sleep(0.1)
+                    # Periodic contact refresh
+                    if now - last_contact_refresh > CONTACT_REFRESH_SECONDS:
+                        await self._refresh_contacts()
+                        last_contact_refresh = now
+
+                    # Background key retry for missing channels
+                    if (
+                        self._pending_keys
+                        and now - last_key_retry > KEY_RETRY_INTERVAL
+                    ):
+                        await self._retry_missing_keys()
+                        last_key_retry = now
+
+                    # Periodic cleanup of old data (daily)
+                    if now - last_cleanup > CLEANUP_INTERVAL:
+                        await self._cleanup_old_data()
+                        last_cleanup = now
+
+                    await asyncio.sleep(0.1)
+
+                # ── Disconnect detected — reconnect ──
+                if self._disconnected and self.running:
+                    self.shared.set_connected(False)
+                    self.shared.set_status(
+                        "🔄 Verbinding verloren — herverbinden..."
+                    )
+                    print("BLE: Verbinding verloren, start reconnect...")
+                    self.mc = None
+
+                    async def _create_fresh_connection() -> MeshCore:
+                        return await MeshCore.create_ble(
+                            self.address,
+                            auto_reconnect=True,
+                            default_timeout=BLE_DEFAULT_TIMEOUT,
+                            debug=BLE_LIB_DEBUG,
+                        )
+
+                    new_mc = await reconnect_loop(
+                        _create_fresh_connection,
+                        self.address,
+                        max_retries=RECONNECT_MAX_RETRIES,
+                        base_delay=RECONNECT_BASE_DELAY,
+                    )
+
+                    if new_mc:
+                        self.mc = new_mc
+                        await asyncio.sleep(1)
+                        # Re-wire collaborators with new connection
+                        self._evt_handler = EventHandler(
+                            shared=self.shared,
+                            decoder=self._decoder,
+                            dedup=self._dedup,
+                            bot=self._bot,
+                        )
+                        self._cmd_handler = CommandHandler(
+                            mc=self.mc,
+                            shared=self.shared,
+                            cache=self._cache,
+                        )
+                        self._cmd_handler.set_load_data_callback(
+                            self._load_data
+                        )
+
+                        # Re-subscribe events
+                        self.mc.subscribe(
+                            EventType.CHANNEL_MSG_RECV,
+                            self._evt_handler.on_channel_msg,
+                        )
+                        self.mc.subscribe(
+                            EventType.CONTACT_MSG_RECV,
+                            self._evt_handler.on_contact_msg,
+                        )
+                        self.mc.subscribe(
+                            EventType.RX_LOG_DATA,
+                            self._evt_handler.on_rx_log,
+                        )
+                        self.mc.subscribe(
+                            EventType.LOGIN_SUCCESS,
+                            self._on_login_success,
+                        )
+
+                        # Reload data and resume
+                        await self._load_data()
+                        await self.mc.start_auto_message_fetching()
+                        self.shared.set_connected(True)
+                        self.shared.set_status("✅ Herverbonden")
+                        print("BLE: ✅ Herverbonden en operationeel")
+                    else:
+                        self.shared.set_status(
+                            "❌ Herverbinding mislukt — herstart nodig"
+                        )
+                        print(
+                            "BLE: ❌ Kan niet herverbinden — "
+                            "wacht 60s en probeer opnieuw..."
+                        )
+                        await asyncio.sleep(60)
+                        await remove_bond(self.address)
+                        await asyncio.sleep(1)
+        finally:
+            # ── Cleanup: stop PIN agent ──
+            await self._agent.stop()
 
     # ------------------------------------------------------------------
     # Connection (cache-first)

@@ -8,6 +8,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [1.9.0] - 2026-02-14 — BLE Connection Stability
+
+### Added
+- ✅ **Built-in BLE PIN agent** — New `ble/ble_agent.py` registers a D-Bus agent with BlueZ to handle PIN pairing requests automatically. Eliminates the need for external `bt-agent.service` and `bluez-tools` package
+  - Uses `dbus_fast` (already a dependency of `bleak`, no new packages)
+  - Supports `RequestPinCode`, `RequestPasskey`, `DisplayPasskey`, `RequestConfirmation`, `AuthorizeService` callbacks
+  - Configurable PIN via `BLE_PIN` in `config.py` (default: `123456`)
+- ✅ **Automatic bond cleanup** — New `ble/ble_reconnect.py` provides `remove_bond()` function that removes stale BLE bonds via D-Bus, equivalent to `bluetoothctl remove <address>`. Called automatically on startup and before each reconnect attempt
+- ✅ **Automatic reconnect after disconnect** — BLEWorker main loop now detects BLE disconnects (via connection error exceptions) and automatically triggers a reconnect sequence: bond removal → linear backoff wait → fresh connection → re-wire handlers → reload device data
+  - Configurable via `RECONNECT_MAX_RETRIES` (default: 5) and `RECONNECT_BASE_DELAY` (default: 5.0s)
+  - After all retries exhausted: waits 60s then starts a new retry cycle (infinite recovery)
+- ✅ **Generic install script** — `install_ble_stable.sh` auto-detects user, project directory, venv path and entry point to generate systemd service and D-Bus policy. Supports `--uninstall` flag
+
+### Changed
+- 🔄 **`ble/worker.py`** — `_async_main()` rewritten with three phases: (1) start PIN agent, (2) remove stale bond, (3) connect + main loop with disconnect detection. Reconnect logic re-wires all event handlers and reloads device data after successful reconnection
+- 🔄 **`config.py`** — Added `BLE_PIN`, `RECONNECT_MAX_RETRIES`, `RECONNECT_BASE_DELAY` constants
+
+### Removed
+- ❌ **`bt-agent.service` dependency** — No longer needed; PIN pairing is handled by the built-in agent
+- ❌ **`bluez-tools` system package** — No longer needed
+- ❌ **`~/.meshcore-ble-pin` file** — No longer needed
+- ❌ **Manual `bluetoothctl remove` before startup** — Handled automatically
+- ❌ **`ExecStartPre` in systemd service** — Bond cleanup is internal
+
+### Impact
+- Zero external dependencies for BLE pairing on Linux
+- Automatic recovery from the T1000e ~2 hour BLE disconnect issue
+- No manual intervention needed after BLE connection loss
+- Single systemd service (`meshcore-gui.service`) manages everything
+- No breaking changes to existing functionality
+
+---
+
 ## [1.8.0] - 2026-02-14 — DRY Message Construction & Archive Layout Unification
 
 ### Fixed

@@ -256,6 +256,18 @@ BLE_DEFAULT_TIMEOUT: float = 10.0
 # When True, raw BLE send/receive data and event parsing are logged.
 BLE_LIB_DEBUG: bool = True
 
+# BLE pairing PIN for the MeshCore device (T1000e default: 123456).
+# Used by the built-in D-Bus agent to answer pairing requests
+# automatically — eliminates the need for bt-agent.service.
+BLE_PIN: str = "123456"
+
+# Maximum number of reconnect attempts after a BLE disconnect.
+RECONNECT_MAX_RETRIES: int = 5
+
+# Base delay in seconds between reconnect attempts (multiplied by
+# attempt number for linear backoff: 5s, 10s, 15s, 20s, 25s).
+RECONNECT_BASE_DELAY: float = 5.0
+
 # Interval in seconds between periodic contact refreshes from the device.
 # Contacts are merged (new/changed contacts update the cache; contacts
 # only present in cache are kept so offline nodes are preserved).
