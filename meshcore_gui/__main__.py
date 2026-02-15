@@ -9,6 +9,8 @@ NiceGUI pages and starts the server.
 Usage:
     python meshcore_gui.py <BLE_ADDRESS>
     python meshcore_gui.py <BLE_ADDRESS> --debug-on
+    python meshcore_gui.py <BLE_ADDRESS> --port=9090
+    python meshcore_gui.py <BLE_ADDRESS> --ble-pin=000000
     python -m meshcore_gui <BLE_ADDRESS>
 
                    Author: PE1HVH
@@ -84,27 +86,49 @@ def main():
     if not args:
         print("MeshCore GUI - Threaded BLE Edition")
         print("=" * 40)
-        print("Usage: python meshcore_gui.py <BLE_ADDRESS> [--debug-on]")
+        print("Usage: python meshcore_gui.py <BLE_ADDRESS> [--debug-on] [--port=PORT] [--ble-pin=PIN]")
         print("Example: python meshcore_gui.py literal:AA:BB:CC:DD:EE:FF")
         print("         python meshcore_gui.py literal:AA:BB:CC:DD:EE:FF --debug-on")
+        print("         python meshcore_gui.py literal:AA:BB:CC:DD:EE:FF --port=9090")
+        print("         python meshcore_gui.py literal:AA:BB:CC:DD:EE:FF --ble-pin=000000")
         print()
         print("Options:")
-        print("  --debug-on    Enable verbose debug logging")
+        print("  --debug-on        Enable verbose debug logging")
+        print("  --port=PORT       Web server port (default: 8081)")
+        print("  --ble-pin=PIN     BLE pairing PIN (default: 123456)")
         print()
         print("Tip: Use 'bluetoothctl scan on' to find devices")
         sys.exit(1)
 
     ble_address = args[0]
+    config.set_log_file_for_device(ble_address)
 
     # Apply --debug-on flag
     if '--debug-on' in flags:
         config.DEBUG = True
+
+    # Apply --port flag
+    port = 8081
+    for flag in flags:
+        if flag.startswith('--port='):
+            try:
+                port = int(flag.split('=', 1)[1])
+            except ValueError:
+                print(f"ERROR: Invalid port number: {flag}")
+                sys.exit(1)
+
+    # Apply --ble-pin flag
+    for flag in flags:
+        if flag.startswith('--ble-pin='):
+            config.BLE_PIN = flag.split('=', 1)[1]
 
     # Startup banner
     print("=" * 50)
     print("MeshCore GUI - Threaded BLE Edition")
     print("=" * 50)
     print(f"Device:     {ble_address}")
+    print(f"Port:       {port}")
+    print(f"BLE PIN:    {config.BLE_PIN}")
     print(f"Debug mode: {'ON' if config.DEBUG else 'OFF'}")
     print("=" * 50)
 
@@ -121,7 +145,7 @@ def main():
     worker.start()
 
     # Start NiceGUI server (blocks)
-    ui.run(show=False, host='0.0.0.0', title='MeshCore', port=8081, reload=False, storage_secret='meshcore-gui-secret')
+    ui.run(show=False, host='0.0.0.0', title='MeshCore', port=port, reload=False, storage_secret='meshcore-gui-secret')
 
 
 if __name__ == "__main__":

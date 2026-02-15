@@ -8,6 +8,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [1.9.2] - 2026-02-15 — CLI Parameters & Cleanup
+
+### Added
+- ✅ **`--port=PORT` CLI parameter** — Web server port is now configurable at startup (default: `8081`). Allows running multiple instances simultaneously on different ports
+- ✅ **`--ble-pin=PIN` CLI parameter** — BLE pairing PIN is now configurable at startup (default: `123456`). Eliminates the need to edit `config.py` for devices with a non-default PIN, and works in systemd service files
+- ✅ **Per-device log file** — Debug log file now includes the BLE address in its filename (e.g. `F0_9E_9E_75_A3_01_meshcore_gui.log`), so multiple instances log to separate files
+
+### Fixed
+- 🛠 **BLE PIN not applied from CLI** — `ble/worker.py` imported `BLE_PIN` as a constant at module load time (`from config import BLE_PIN`), capturing the default value `"123456"` before CLI parsing could override `config.BLE_PIN`. Changed to runtime access via `config.BLE_PIN` so the `--ble-pin` parameter is correctly passed to the BLE agent
+
+### Removed
+- ❌ **Redundant `meshcore_gui/meshcore_gui.py`** — This file was a near-identical copy of both `meshcore_gui.py` (top-level) and `meshcore_gui/__main__.py`, but was never imported or referenced. Removed to eliminate maintenance risk. The two remaining entry points cover all startup methods: `python meshcore_gui.py` and `python -m meshcore_gui`
+
+### Impact
+- Multiple instances can run side-by-side with different ports, PINs and log files
+- Service deployments no longer require editing `config.py` — all runtime settings via CLI
+- No breaking changes — all defaults are unchanged
+
+---
+
 ## [1.9.1] - 2026-02-14 — Bugfix: Dual Reconnect Conflict
 
 ### Fixed

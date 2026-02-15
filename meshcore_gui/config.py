@@ -24,7 +24,7 @@ from typing import Any, Dict, List
 # VERSION
 # ==============================================================================
 
-VERSION: str = "1.9.1"
+VERSION: str = "1.9.2"
 
 
 # ==============================================================================
@@ -41,6 +41,20 @@ LOG_DIR: Path = DATA_DIR / "logs"
 
 # Log file path (rotating: max 5 MB per file, 3 backups = 20 MB total).
 LOG_FILE: Path = LOG_DIR / "meshcore_gui.log"
+
+
+def set_log_file_for_device(ble_address: str) -> None:
+    """Set the log file name based on the BLE device address.
+
+    Transforms ``F0:9E:9E:75:A3:01`` into
+    ``~/.meshcore-gui/logs/F0_9E_9E_75_A3_01_meshcore_gui.log``.
+
+    Must be called **before** the first ``debug_print()`` call so the
+    lazy logger initialisation picks up the correct path.
+    """
+    global LOG_FILE
+    safe_name = ble_address.replace(":", "_")
+    LOG_FILE = LOG_DIR / f"{safe_name}_meshcore_gui.log"
 
 # Maximum size per log file in bytes (5 MB).
 LOG_MAX_BYTES: int = 5 * 1024 * 1024

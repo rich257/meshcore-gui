@@ -151,7 +151,7 @@ sudo tee /etc/dbus-1/system.d/meshcore-ble.conf << EOF
 EOF
 ```
 
-The PIN is configured via `BLE_PIN` in `meshcore_gui/config.py` (default: `123456`).
+The PIN defaults to `123456` and can be overridden at startup with `--ble-pin=PIN`, or by editing `BLE_PIN` in `meshcore_gui/config.py`.
 
 > **Migrating from bt-agent:** If you previously used `bt-agent.service` for PIN pairing, it is no longer needed. Remove it:
 > ```bash
@@ -215,15 +215,18 @@ python meshcore_gui.py AA:BB:CC:DD:EE:FF
 
 Replace `AA:BB:CC:DD:EE:FF` with the MAC address of your device. The application automatically cleans up stale BLE bonds on startup.
 
-For verbose debug logging:
+Optional flags:
 
 ```bash
-python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on
+python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on              # Verbose debug logging
+python meshcore_gui.py AA:BB:CC:DD:EE:FF --port=9090             # Custom web server port (default: 8081)
+python meshcore_gui.py AA:BB:CC:DD:EE:FF --ble-pin=654321        # Custom BLE pairing PIN (default: 123456)
+python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on --port=8082 --ble-pin=171227  # All options combined
 ```
 
 ### 5. Open the interface
 
-The GUI opens automatically in your browser at `http://localhost:8080`
+The GUI opens automatically in your browser at `http://localhost:8081`
 
 ## Running Headless on Your Local Network
 
@@ -241,17 +244,17 @@ source venv/bin/activate
 nohup python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on > ~/meshcore.log 2>&1 &
 ```
 
-`nohup` keeps the application running after you close your SSH session. Redirecting to `~/meshcore.log` preserves output for debugging; avoid redirecting to `/dev/null` as it hides connection errors. Debug output is also written to a rotating log file at `~/.meshcore-gui/logs/meshcore_gui.log` (max 20 MB, rotates automatically). Stale BLE bonds are cleaned up automatically on startup.
+`nohup` keeps the application running after you close your SSH session. Redirecting to `~/meshcore.log` preserves output for debugging; avoid redirecting to `/dev/null` as it hides connection errors. Debug output is also written to a per-device rotating log file at `~/.meshcore-gui/logs/<ADDRESS>_meshcore_gui.log` (e.g. `F0_9E_9E_75_A3_01_meshcore_gui.log`, max 20 MB, rotates automatically). Stale BLE bonds are cleaned up automatically on startup.
 
 ### Accessing the interface
 
 Open a browser on any device on your local network and navigate to:
 
 ```
-http://<hostname-or-ip>:8080
+http://<hostname-or-ip>:8081
 ```
 
-For example: `http://raspberrypi5nas:8080` or `http://192.168.2.234:8080`
+For example: `http://raspberrypi5nas:8081` or `http://192.168.2.234:8081`
 
 This works from any device on the same network — desktop, laptop, tablet or phone.
 
@@ -282,7 +285,7 @@ Wants=bluetooth.target
 Type=simple
 User=your-username
 WorkingDirectory=/home/your-username/meshcore-gui
-ExecStart=/home/your-username/meshcore-gui/venv/bin/python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on
+ExecStart=/home/your-username/meshcore-gui/venv/bin/python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on --port=8081 --ble-pin=123456
 Restart=on-failure
 RestartSec=30
 Environment=DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
@@ -291,7 +294,7 @@ Environment=DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
 WantedBy=multi-user.target
 ```
 
-Replace `your-username` and `AA:BB:CC:DD:EE:FF` with your actual username and BLE device address. Bond cleanup and PIN pairing are handled automatically by the built-in agent — no `ExecStartPre` or `bt-agent` dependency needed.
+Replace `your-username`, `AA:BB:CC:DD:EE:FF`, port and PIN with your actual values. Bond cleanup and PIN pairing are handled automatically by the built-in agent — no `ExecStartPre` or `bt-agent` dependency needed.
 
 ```bash
 sudo systemctl daemon-reload
@@ -332,7 +335,7 @@ If your MeshCore device has BLE PIN pairing enabled, make sure the D-Bus policy 
 | `DEBUG` | `meshcore_gui/config.py` | Set to `True` for verbose logging (or use `--debug-on`) |
 | `MAX_CHANNELS` | `meshcore_gui/config.py` | Maximum channel slots to probe on device (default: 8) |
 | `CHANNEL_CACHE_ENABLED` | `meshcore_gui/config.py` | Cache discovered channels to disk for faster startup (default: `False` — always fresh from device) |
-| `BLE_PIN` | `meshcore_gui/config.py` | BLE pairing PIN for the MeshCore device (default: `123456`) |
+| `BLE_PIN` | `meshcore_gui/config.py` | BLE pairing PIN for the MeshCore device (default: `123456`). Override at startup with `--ble-pin=PIN` |
 | `RECONNECT_MAX_RETRIES` | `meshcore_gui/config.py` | Maximum reconnect attempts after a BLE disconnect (default: 5) |
 | `RECONNECT_BASE_DELAY` | `meshcore_gui/config.py` | Base delay in seconds between reconnect attempts, multiplied by attempt number (default: 5.0) |
 | `CONTACT_REFRESH_SECONDS` | `meshcore_gui/config.py` | Interval between periodic contact refreshes (default: 300s / 5 minutes) |
@@ -345,7 +348,10 @@ If your MeshCore device has BLE PIN pairing enabled, make sure the D-Bus policy 
 | `BOT_COOLDOWN_SECONDS` | `meshcore_gui/services/bot.py` | Minimum seconds between bot replies |
 | `BOT_KEYWORDS` | `meshcore_gui/services/bot.py` | Keyword → reply template mapping |
 | Room passwords | `~/.meshcore-gui/room_passwords/<ADDRESS>.json` | Per-device Room Server passwords (managed via GUI, stored outside repository) |
-| BLE Address | Command line argument | Device MAC address (or UUID on macOS) |
+| BLE Address | CLI argument | Device MAC address (or UUID on macOS) |
+| `--port=PORT` | CLI flag | Web server port (default: `8081`) |
+| `--ble-pin=PIN` | CLI flag | BLE pairing PIN override (default: `123456`) |
+| `--debug-on` | CLI flag | Enable verbose debug logging |
 
 ## Functionality
 
@@ -649,6 +655,8 @@ python meshcore_gui.py AA:BB:CC:DD:EE:FF --debug-on
 
 Or set `DEBUG = True` in `meshcore_gui/config.py`.
 
+Debug output is written to both stdout and a per-device rotating log file at `~/.meshcore-gui/logs/<ADDRESS>_meshcore_gui.log` (e.g. `F0_9E_9E_75_A3_01_meshcore_gui.log`).
+
 ### Project structure
 
 <!-- CHANGED: Project structure updated — added archive_page.py and message_archive.py -->
@@ -660,7 +668,7 @@ meshcore-gui/
 ├── meshcore_gui/                    # Application package
 │   ├── __init__.py
 │   ├── __main__.py                  # Alternative entry: python -m meshcore_gui
-│   ├── config.py                    # DEBUG flag, channel discovery settings (MAX_CHANNELS, CHANNEL_CACHE_ENABLED), BLE_PIN, RECONNECT_* settings, refresh interval, retention settings, BOT_DEVICE_NAME
+│   ├── config.py                    # DEBUG flag, channel discovery settings (MAX_CHANNELS, CHANNEL_CACHE_ENABLED), BLE_PIN, RECONNECT_* settings, refresh interval, retention settings, BOT_DEVICE_NAME, per-device log file naming
 │   ├── ble/                         # BLE communication layer
 │   │   ├── __init__.py
 │   │   ├── worker.py                # BLE thread, connection lifecycle, cache-first startup, disconnect detection, auto-reconnect, background key retry

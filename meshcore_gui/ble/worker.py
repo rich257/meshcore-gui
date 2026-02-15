@@ -50,7 +50,6 @@ from meshcore import MeshCore, EventType
 from meshcore_gui.config import (
     BLE_DEFAULT_TIMEOUT,
     BLE_LIB_DEBUG,
-    BLE_PIN,
     CHANNEL_CACHE_ENABLED,
     CONTACT_REFRESH_SECONDS,
     MAX_CHANNELS,
@@ -60,6 +59,7 @@ from meshcore_gui.config import (
     debug_print,
     pp,
 )
+import meshcore_gui.config as _config
 from meshcore_gui.core.protocols import SharedDataWriter
 from meshcore_gui.ble.ble_agent import BleAgentManager
 from meshcore_gui.ble.ble_reconnect import reconnect_loop, remove_bond
@@ -94,7 +94,7 @@ class BLEWorker:
         self._disconnected = False
 
         # BLE PIN agent (replaces external bt-agent.service)
-        self._agent = BleAgentManager(pin=BLE_PIN)
+        self._agent = BleAgentManager(pin=_config.BLE_PIN)
 
         # Local cache (one file per device)
         self._cache = DeviceCache(address)
