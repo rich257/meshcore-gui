@@ -41,12 +41,11 @@ class ArchivePage:
         # Get snapshot once for use in filters and messages
         snapshot = self._shared.get_snapshot()
         
-        with ui.column().classes('w-full p-4 gap-4'):
+        with ui.column().classes('w-full p-4 gap-4').style(
+            'height: calc(100vh - 5rem); overflow: hidden'
+        ):
             # Header
-            with ui.row().classes('w-full items-center'):
-                ui.label('Message Archive').classes('text-2xl font-bold')
-                ui.space()
-                ui.button('Back to Dashboard', on_click=lambda: ui.navigate.to('/')).props('flat')
+            ui.label('Message Archive').classes('text-2xl font-bold')
             
             # Filters
             self._render_filters(snapshot)
@@ -190,7 +189,7 @@ class ArchivePage:
         # Pagination info
         total_pages = (total_count + self._page_size - 1) // self._page_size
         
-        with ui.column().classes('w-full gap-2'):
+        with ui.column().classes('w-full gap-2 flex-grow').style('overflow: hidden; min-height: 0'):
             # Pagination header
             with ui.row().classes('w-full items-center justify-between'):
                 ui.label(f'Showing {len(messages)} of {total_count} messages').classes('text-sm text-gray-600')
@@ -227,7 +226,7 @@ class ArchivePage:
                 ui.label('No messages found').classes('text-gray-500 italic mt-4')
             else:
                 with ui.column().classes(
-                    'w-full overflow-y-auto gap-0 text-sm font-mono '
+                    'w-full flex-grow overflow-y-auto gap-0 text-sm font-mono '
                     'bg-gray-50 p-2 rounded'
                 ):
                     for msg_dict in messages:

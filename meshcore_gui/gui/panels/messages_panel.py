@@ -44,11 +44,10 @@ class MessagesPanel:
 
     def render(self) -> None:
         with ui.card().classes('w-full'):
-            # Header row: Messages label + filter checkboxes + Archive button
+            # Header row: Messages label + filter checkboxes
             with ui.row().classes('w-full items-center gap-2'):
                 ui.label('💬 Messages').classes('font-bold text-gray-600')
                 self._filter_container = ui.row().classes('flex-grow gap-4 items-center justify-center')
-                ui.button('📚 Archive', on_click=lambda: ui.run_javascript('window.open("/archive", "_blank")')).props('dense flat color=primary')
 
             # Message container
             self._container = ui.column().classes(
