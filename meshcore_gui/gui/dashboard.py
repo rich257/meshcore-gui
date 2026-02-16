@@ -41,6 +41,13 @@ logging.getLogger('nicegui').addFilter(_DeletedClientFilter())
 # Dark/light variable sets switch via Quasar's body--dark / body--light classes.
 
 _DOMCA_HEAD = '''
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#0d1f35">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DOMCA">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 /* ── DOMCA theme variables (dark) ── */

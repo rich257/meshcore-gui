@@ -21,7 +21,7 @@ Usage:
 
 import sys
 
-from nicegui import ui
+from nicegui import app, ui
 
 # Allow overriding DEBUG before anything imports it
 import meshcore_gui.config as config
@@ -144,8 +144,14 @@ def main():
     worker = BLEWorker(ble_address, _shared)
     worker.start()
 
+    # Serve static PWA assets (manifest, icons)
+    from pathlib import Path
+    static_dir = Path(__file__).parent / 'static'
+    if static_dir.is_dir():
+        app.add_static_files('/static', str(static_dir))
+
     # Start NiceGUI server (blocks)
-    ui.run(show=False, host='0.0.0.0', title='MeshCore', port=port, reload=False, storage_secret='meshcore-gui-secret')
+    ui.run(show=False, host='0.0.0.0', title='DOMCA MeshCore', port=port, reload=False, storage_secret='meshcore-gui-secret')
 
 
 if __name__ == "__main__":
