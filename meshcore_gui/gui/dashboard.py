@@ -290,6 +290,7 @@ _DOMCA_SVG = '''\
 # ── Standalone menu items (no submenus) ──────────────────────────────
 
 _STANDALONE_ITEMS = [
+    ('\U0001f465', 'CONTACTS', 'contacts'),
     ('\U0001f5fa\ufe0f', 'MAP',      'map'),
     ('\U0001f4e1', 'DEVICE',   'device'),
     ('\u26a1',     'ACTIONS',  'actions'),
@@ -386,17 +387,8 @@ class DashboardPage:
         ).style('padding: 0')
 
         with self._drawer:
-            # Top row: X close button (same position as hamburger)
-            with ui.row().classes('w-full items-center').style(
-                'padding: 0.2rem 0.5rem 0'
-            ):
-                ui.button(
-                    icon='close',
-                    on_click=lambda: self._drawer.hide(),
-                ).props('flat round dense color=white')
-
             # DOMCA branding (clickable → landing page)
-            with ui.column().style('padding: 0 1.2rem 0'):
+            with ui.column().style('padding: 0.2rem 1.2rem 0'):
                 ui.button(
                     'DOMCA',
                     on_click=lambda: self._show_panel('landing'),
