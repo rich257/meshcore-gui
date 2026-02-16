@@ -4,6 +4,8 @@ from typing import Dict, List
 
 from nicegui import ui
 
+from meshcore_gui.config import DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
+
 
 class MapPanel:
     """Interactive Leaflet map in the centre column."""
@@ -19,7 +21,7 @@ class MapPanel:
     def render(self) -> None:
         with ui.card().classes('w-full'):
             self._map = ui.leaflet(
-                center=(52.5, 6.0), zoom=9
+                center=DEFAULT_MAP_CENTER, zoom=DEFAULT_MAP_ZOOM
             ).classes('w-full h-72')
 
     def update(self, data: Dict) -> None:

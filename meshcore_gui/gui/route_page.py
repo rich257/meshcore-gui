@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 from nicegui import ui
 
 from meshcore_gui.gui.constants import TYPE_LABELS
-from meshcore_gui.config import debug_print
+from meshcore_gui.config import debug_print, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM
 from meshcore_gui.core.models import Message, RouteNode
 from meshcore_gui.services.route_builder import RouteBuilder
 from meshcore_gui.core.protocols import SharedDataReadAndLookup
@@ -162,11 +162,11 @@ class RoutePage:
                 ).classes('text-gray-500 italic p-4')
                 return
 
-            center_lat = data['adv_lat'] or 52.5
-            center_lon = data['adv_lon'] or 6.0
+            center_lat = data['adv_lat'] or DEFAULT_MAP_CENTER[0]
+            center_lon = data['adv_lon'] or DEFAULT_MAP_CENTER[1]
 
             route_map = ui.leaflet(
-                center=(center_lat, center_lon), zoom=10
+                center=(center_lat, center_lon), zoom=DEFAULT_MAP_ZOOM
             ).classes('w-full h-96')
 
             # Build ordered list of positions (or None)

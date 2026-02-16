@@ -24,7 +24,23 @@ from typing import Any, Dict, List
 # VERSION
 # ==============================================================================
 
-VERSION: str = "1.9.1"
+VERSION: str = "1.9.2"
+
+
+# ==============================================================================
+# MAP DEFAULTS
+# ==============================================================================
+
+# Default map centre used as the initial view *before* the device reports
+# its own GPS position.  Once the device advertises a valid adv_lat/adv_lon
+# pair, every map will re-centre on the device's actual location.
+#
+# Change these values to match the location of your device / station.
+# Current default: Zwolle, The Netherlands (52.5168, 6.0830).
+DEFAULT_MAP_CENTER: tuple[float, float] = (52.5168, 6.0830)
+
+# Default zoom level for all Leaflet maps (higher = more zoomed in).
+DEFAULT_MAP_ZOOM: int = 9
 
 
 # ==============================================================================
