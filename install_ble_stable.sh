@@ -70,7 +70,7 @@ if [[ ! -x "${VENV_PYTHON}" ]]; then
        Create it first:
          python3 -m venv venv
          source venv/bin/activate
-         pip install meshcore nicegui"
+         pip install meshcore nicegui bleak meshcoredecoder"
 fi
 
 # Determine the entry point
