@@ -146,6 +146,8 @@ class DashboardPage:
             # Device info
             if data['device_updated'] or is_first:
                 self._device.update(data)
+                  # to show own position if changed
+                self._map.update(data)
 
             # Channels → filter checkboxes + channel dropdown + BOT state
             if data['channels_updated'] or is_first:
